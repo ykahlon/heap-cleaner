@@ -10,10 +10,9 @@ export class GraphManager {
 
     constructGraph(): Set<HeapNode> {
         const resultMap = new Map<number, HeapNode>();
-        let nodeCounter = 0;
         for (let i = 0; i < this.jsonHeapDump.nodes.length; i += 6) {
-            let heapNode = new HeapNode(this.jsonHeapDump.nodes.slice(i, i + 6), nodeCounter);
-            resultMap.set(nodeCounter++, heapNode);
+            let heapNode = new HeapNode(this.jsonHeapDump.nodes.slice(i, i + 6), i);
+            resultMap.set(i, heapNode);
         }
 
         for (let i = 0; i < this.jsonHeapDump.edges.length; i += 3) {
