@@ -6,8 +6,8 @@ const run = async () => {
     const graphManager = new GraphManager(JSON.parse(jsonData));
     const heapNodes = graphManager.constructGraph();
     const jsonOutput = graphManager.exportGraphToJson(heapNodes);
-    await writeFileSync('./output.json', jsonOutput, {encoding: 'utf-8'})
-    console.log("See output in output.json");
+    await writeFileSync('./output.heapsnapshot', jsonOutput, {encoding: 'utf-8'})
+    console.log("See output in output.heapsnapshot");
 }
 run().then();
 
