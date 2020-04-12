@@ -1,0 +1,18 @@
+{
+  "name": "heap-cleaner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --require ts-node/register src/cleaner.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/node": "^13.11.1",
+    "ts-node": "^8.8.2",
+    "typescript": "^3.8.3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
