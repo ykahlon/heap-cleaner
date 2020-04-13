@@ -25,6 +25,7 @@ export class GraphManager {
                 node.connectNextNode(toNode, edge);
                 toNode.connectPrevNode(node);
             }
+            currentEdgeIndex +=  node.getOriginalEdgeCount() * 3;
         }
     }
 
@@ -40,9 +41,9 @@ export class GraphManager {
             this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields);
         }
         for (const heapNode of sortedNodes) {
-            for (const [nextNode, edge] of heapNode.getNextEdges().entries()) {
+            for (const {node, edge} of heapNode.getNextEdges()) {
                 // TODO: casting to number even though it may be a string
-                this.jsonHeapDump.edges.push(edge.type, edge.nameOrIndexToStrings as number, nodeIndices.get(nextNode)!);
+                this.jsonHeapDump.edges.push(edge.type, edge.nameOrIndexToStrings as number, nodeIndices.get(node)!);
             }
         }
 

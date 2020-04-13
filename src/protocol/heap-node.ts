@@ -1,24 +1,24 @@
 // "node_fields":["type","name","id","self_size","edge_count","trace_node_id"
 export class HeapNode {
-    private prevNodes = new Set<HeapNode>();
-    private nextNodes = new Map<HeapNode, Edge>();
+    private prevNodes: HeapNode[] = [];
+    private nextNodes: Array<{ node: HeapNode, edge: Edge }> = [];
 
     constructor(public readonly originalNodeFields: number[],
                 public readonly originalIndex: number) {
     }
 
     connectPrevNode(prevNode: HeapNode) {
-        this.prevNodes.add(prevNode);
+        this.prevNodes.push(prevNode);
     }
 
-    connectNextNode(nextNode: HeapNode, edge: Edge) {
-        this.nextNodes.set(nextNode, edge);
+    connectNextNode(node: HeapNode, edge: Edge) {
+        this.nextNodes.push({node, edge});
     }
 
     delete() {
         for (const prevNode of this.prevNodes) {
             prevNode.removeNextNode(this);
-            for (const [nextNode, edge] of this.nextNodes.entries()) {
+            for (const {node: nextNode, edge} of this.nextNodes) {
                 nextNode.removePrevNode(this);
                 prevNode.connectNextNode(nextNode, edge);
                 nextNode.connectPrevNode(prevNode);
@@ -27,19 +27,25 @@ export class HeapNode {
     }
 
     private removeNextNode(node: HeapNode) {
-        this.nextNodes.delete(node);
+        const indexToDelete = this.nextNodes.findIndex((item) => item.node === node);
+        if (indexToDelete > -1) {
+            this.nextNodes.splice(indexToDelete, 1);
+        }
     }
 
     private removePrevNode(node: HeapNode) {
-        this.prevNodes.delete(node);
+        const indexToDelete = this.prevNodes.findIndex((item) => item === node);
+        if (indexToDelete > -1) {
+            this.prevNodes.splice(indexToDelete, 1);
+        }
     }
 
     getEdgeCount() {
-        return this.nextNodes.size;
+        return this.nextNodes.length;
     }
 
-    getNextEdges(): Map<HeapNode, Edge> {
-        return new Map(this.nextNodes.entries());
+    getNextEdges(): { node: HeapNode; edge: Edge }[] {
+        return [...this.nextNodes];
     }
 
     getOriginalEdgeCount(): number {
@@ -50,5 +56,5 @@ export class HeapNode {
 // "edge_fields":["type","name_or_index","to_node"]
 export interface Edge {
     type: number;
-    nameOrIndexToStrings: number|string;
+    nameOrIndexToStrings: number | string;
 }
