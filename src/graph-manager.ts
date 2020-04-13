@@ -25,7 +25,7 @@ export class GraphManager {
                 node.connectNextNode(toNode, edge);
                 toNode.connectPrevNode(node);
             }
-            currentEdgeIndex +=  node.getOriginalEdgeCount() * 3;
+            currentEdgeIndex += node.getOriginalEdgeCount() * 3;
         }
     }
 
@@ -50,8 +50,66 @@ export class GraphManager {
         return JSON.stringify(this.jsonHeapDump);
     }
 
+    focusOnNode(nodeId: number) {
+        const nodeToFocus = [...this.nodeMap.values()].find((node) => node.getNodeId() === nodeId);
+        if (!nodeToFocus) {
+            throw new Error('Cannot focus on node with id: ' + nodeId);
+        }
+
+        // When removing the first layer of next nodes. For each next node, recursively compare the set of retailres
+        // to the set of retainers of the focused node, if no common retainer found, remove edge between the current and the next.
+        nodeToFocus.removeNextNodes();
+        const retainerNodes = new Set<HeapNode>();
+
+        // Remove relevant nodes from the immediate family of this node
+        for (const retainerNode of nodeToFocus.getPrevNodes()) {
+            const retainerEdges = retainerNode.getNextEdges()
+                .filter((next) => next.node === nodeToFocus)
+                .map((next) => next.edge);
+            let deleteCount = 0;
+            for (let i = 0; i < retainerEdges.length; i++) {
+                let edge = retainerEdges[i];
+                // Weak reference
+                if (edge.type === 6) {
+                    retainerNode.removeNextNode(nodeToFocus, edge);
+                    deleteCount++;
+                }
+            }
+            if (deleteCount < retainerEdges.length) {
+                retainerNodes.add(retainerNode);
+            }
+        }
+
+        retainerNodes.add(nodeToFocus);
+        // Recursively collect all prev retainer nodes
+        for (const retainerNode of retainerNodes) {
+            this.visitRecursivePrevs(retainerNode, (node) => {
+                if (retainerNodes.has(node)) {
+                    return false;
+                }
+                retainerNodes.add(node);
+                return true;
+            });
+        }
+
+        // Delete prev nodes not relevant to the node we focus on
+        for (const [index, node] of [...this.nodeMap.entries()]) {
+            if (!retainerNodes.has(node)) {
+                this.nodeMap.delete(index);
+            }
+        }
+    }
+
     private getSortedNodes(): HeapNode[] {
         return [...this.nodeMap.values()]
             .sort((a, b) => a.originalIndex - b.originalIndex);
+    }
+
+    private visitRecursivePrevs(node: HeapNode, visitor: (node) => (boolean)) {
+        for (const prevNode of node.getPrevNodes()) {
+            if (visitor(prevNode)) {
+                this.visitRecursivePrevs(prevNode, visitor);
+            }
+        }
     }
 }

@@ -15,27 +15,16 @@ export class HeapNode {
         this.nextNodes.push({node, edge});
     }
 
-    delete() {
-        for (const prevNode of this.prevNodes) {
-            prevNode.removeNextNode(this);
-            for (const {node: nextNode, edge} of this.nextNodes) {
-                nextNode.removePrevNode(this);
-                prevNode.connectNextNode(nextNode, edge);
-                nextNode.connectPrevNode(prevNode);
-            }
+    removePrevNode(node: HeapNode) {
+        let indexToDelete: number;
+        while ((indexToDelete = this.prevNodes.findIndex((item) => item === node)) !== -1) {
+            this.prevNodes.splice(indexToDelete, 1);
         }
     }
 
-    private removeNextNode(node: HeapNode) {
-        const indexToDelete = this.nextNodes.findIndex((item) => item.node === node);
-        if (indexToDelete > -1) {
-            this.nextNodes.splice(indexToDelete, 1);
-        }
-    }
-
-    private removePrevNode(node: HeapNode) {
+    removeSinglePrevNode(node: HeapNode) {
         const indexToDelete = this.prevNodes.findIndex((item) => item === node);
-        if (indexToDelete > -1) {
+        if (indexToDelete !== -1) {
             this.prevNodes.splice(indexToDelete, 1);
         }
     }
@@ -50,6 +39,29 @@ export class HeapNode {
 
     getOriginalEdgeCount(): number {
         return this.originalNodeFields[4];
+    }
+
+    getNodeId() {
+        return this.originalNodeFields[2];
+    }
+
+    removeNextNodes() {
+        for (const nextNode of [...this.nextNodes]) {
+            nextNode.node.removePrevNode(this);
+        }
+        this.nextNodes.splice(0);
+    }
+
+    removeNextNode(node: HeapNode, edge: Edge) {
+        const indexToDelete = this.nextNodes
+            .findIndex((nextNode) => nextNode.node === node && nextNode.edge === edge);
+        if (indexToDelete === -1) return;
+        this.nextNodes[indexToDelete].node.removeSinglePrevNode(this);
+        this.nextNodes.splice(indexToDelete, 1);
+    }
+
+    getPrevNodes(): HeapNode[] {
+        return [...this.prevNodes];
     }
 }
 
