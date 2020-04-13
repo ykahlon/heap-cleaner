@@ -46,41 +46,73 @@ export class GraphManager {
                 this.jsonHeapDump.edges.push(edge.type, edge.nameOrIndexToStrings as number, nodeIndices.get(node)!);
             }
         }
-
+        this.jsonHeapDump.node_count = this.nodeMap.size;
+        this.jsonHeapDump.edge_count = this.jsonHeapDump.edges.length / 3;
         return JSON.stringify(this.jsonHeapDump);
     }
 
-    focusOnNode(nodeId: number) {
-        const nodeToFocus = [...this.nodeMap.values()].find((node) => node.getNodeId() === nodeId);
-        if (!nodeToFocus) {
-            throw new Error('Cannot focus on node with id: ' + nodeId);
-        }
-
+    focusOnNode(nodeId: number, trueRootId: number) {
+        const [nodeToFocus, rootNode] = [this.findNodeByNodeId(nodeId), this.findNodeByNodeId(trueRootId)];
+        // TODO - verify that rootNode is a root for nodeToFocus (i.e main window)
         // When removing the first layer of next nodes. For each next node, recursively compare the set of retailres
         // to the set of retainers of the focused node, if no common retainer found, remove edge between the current and the next.
-        nodeToFocus.removeNextNodes();
-        const retainerNodes = new Set<HeapNode>();
+        const retainerNodes = this.collectRetainers(nodeToFocus);
+        if (!retainerNodes.has(rootNode)) {
+            throw new Error('Root node is not a retainer of the node to focus');
+        }
+        this.deleteOtherNodes(retainerNodes);
 
-        // Remove relevant nodes from the immediate family of this node
-        for (const retainerNode of nodeToFocus.getPrevNodes()) {
-            const retainerEdges = retainerNode.getNextEdges()
-                .filter((next) => next.node === nodeToFocus)
-                .map((next) => next.edge);
-            let deleteCount = 0;
-            for (let i = 0; i < retainerEdges.length; i++) {
-                let edge = retainerEdges[i];
-                // Weak reference
-                if (edge.type === 6) {
-                    retainerNode.removeNextNode(nodeToFocus, edge);
-                    deleteCount++;
-                }
-            }
-            if (deleteCount < retainerEdges.length) {
-                retainerNodes.add(retainerNode);
+        // const canReachRootNode = new Map<HeapNode, boolean>();
+        // canReachRootNode.set(rootNode, true);
+        // const nextNodes = nodeToFocus.getNextNodes();
+        // nodeToFocus.disconnectNextNodes();
+        // for (const nextNode of nextNodes) {
+        //     this.disconnectNodesWithNoPathFromRoot(nextNode, nodeToFocus, rootNode, canReachRootNode);
+        // }
+        // this.removeAllIsolatedNodes();
+    }
+
+    private disconnectNodesWithNoPathFromRoot(node: HeapNode,
+                                              nodeToFocus: HeapNode,
+                                              rootNode: HeapNode,
+                                              canReachRootNode: Map<HeapNode, boolean>,
+                                              visited = new Set<HeapNode>()) {
+        if (canReachRootNode.has(node)) {
+            return canReachRootNode.get(node)!;
+        }
+
+        const prevNodes = node.getPrevNodes().filter((prev) => prev !== nodeToFocus && !visited.has(prev));
+        const hasPathFromRoot = prevNodes.some((prevNode) => {
+            visited.add(prevNode);
+            return this.disconnectNodesWithNoPathFromRoot(prevNode, nodeToFocus, rootNode, canReachRootNode, visited);
+        });
+        canReachRootNode.set(node, hasPathFromRoot);
+
+        if (!hasPathFromRoot) {
+            const nextNodes = node.getNextNodes().filter((nextNode) => !visited.has(nextNode));
+            node.disconnectNextNodes();
+            for (const nextNode of nextNodes) {
+                visited.add(nextNode);
+                this.disconnectNodesWithNoPathFromRoot(nextNode, nodeToFocus, rootNode, canReachRootNode, visited);
             }
         }
 
-        retainerNodes.add(nodeToFocus);
+        return hasPathFromRoot;
+    }
+
+    private deleteOtherNodes(retainerNodes: Set<HeapNode>) {
+        // Delete prev nodes not relevant to the node we focus on
+        for (const [index, node] of [...this.nodeMap.entries()]) {
+            if (!retainerNodes.has(node)) {
+                node.disconnectNextNodes();
+                node.disconnectPrevNodes()
+                this.nodeMap.delete(index);
+            }
+        }
+    }
+
+    private collectRetainers(nodeToFocus: HeapNode) {
+        const retainerNodes = new Set<HeapNode>([...nodeToFocus.getPrevNodes()]);
         // Recursively collect all prev retainer nodes
         for (const retainerNode of retainerNodes) {
             this.visitRecursivePrevs(retainerNode, (node) => {
@@ -91,13 +123,15 @@ export class GraphManager {
                 return true;
             });
         }
+        return retainerNodes;
+    }
 
-        // Delete prev nodes not relevant to the node we focus on
-        for (const [index, node] of [...this.nodeMap.entries()]) {
-            if (!retainerNodes.has(node)) {
-                this.nodeMap.delete(index);
-            }
+    private findNodeByNodeId(nodeId: number) {
+        const node = [...this.nodeMap.values()].find((node) => node.getNodeId() === nodeId);
+        if (!node) {
+            throw new Error('Cannot find node with id: ' + nodeId);
         }
+        return node;
     }
 
     private getSortedNodes(): HeapNode[] {
@@ -109,6 +143,14 @@ export class GraphManager {
         for (const prevNode of node.getPrevNodes()) {
             if (visitor(prevNode)) {
                 this.visitRecursivePrevs(prevNode, visitor);
+            }
+        }
+    }
+
+    private removeAllIsolatedNodes() {
+        for (const [location, node] of [...this.nodeMap.entries()]) {
+            if (!node.getNextNodes().length && !node.getPrevNodes().length) {
+                this.nodeMap.delete(location);
             }
         }
     }

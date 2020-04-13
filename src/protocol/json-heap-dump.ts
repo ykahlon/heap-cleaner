@@ -7,5 +7,7 @@ export interface JsonHeapDump {
     samples: string[];
     locations: number[];
     strings: string[];
+    edge_count: number;
+    node_count: number;
 }
 

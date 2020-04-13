@@ -1,7 +1,7 @@
 // "node_fields":["type","name","id","self_size","edge_count","trace_node_id"
 export class HeapNode {
-    private prevNodes: HeapNode[] = [];
-    private nextNodes: Array<{ node: HeapNode, edge: Edge }> = [];
+    private readonly prevNodes: HeapNode[] = [];
+    private readonly nextNodes: Array<{ node: HeapNode, edge: Edge }> = [];
 
     constructor(public readonly originalNodeFields: number[],
                 public readonly originalIndex: number) {
@@ -45,7 +45,7 @@ export class HeapNode {
         return this.originalNodeFields[2];
     }
 
-    removeNextNodes() {
+    disconnectNextNodes() {
         for (const nextNode of [...this.nextNodes]) {
             nextNode.node.removePrevNode(this);
         }
@@ -54,7 +54,7 @@ export class HeapNode {
 
     removeNextNode(node: HeapNode, edge: Edge) {
         const indexToDelete = this.nextNodes
-            .findIndex((nextNode) => nextNode.node === node && nextNode.edge === edge);
+            .findIndex(nextNode => nextNode.node === node && nextNode.edge === edge);
         if (indexToDelete === -1) return;
         this.nextNodes[indexToDelete].node.removeSinglePrevNode(this);
         this.nextNodes.splice(indexToDelete, 1);
@@ -62,6 +62,21 @@ export class HeapNode {
 
     getPrevNodes(): HeapNode[] {
         return [...this.prevNodes];
+    }
+
+    getNextNodes() {
+        return this.nextNodes.map((nodeAndEdge) => nodeAndEdge.node);
+    }
+
+    disconnectPrevNodes() {
+        for (const prevNode of this.prevNodes) {
+            const edgesToDelete = prevNode.getNextEdges().filter(edgeAndNode => edgeAndNode.node === this);
+            for (const edgeToDelete of edgesToDelete) {
+                prevNode.removeNextNode(edgeToDelete.node, edgeToDelete.edge);
+            }
+
+        }
+        this.prevNodes.splice(0);
     }
 }
 

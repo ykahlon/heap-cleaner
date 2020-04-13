@@ -5,8 +5,9 @@ import {readFileSync, writeFileSync} from 'fs';
 // focusOnNode (by id)
 
 const run = async () => {
-    const jsonData = await readFileSync('./sample/sample_heap_dump.heapsnapshot', 'utf-8');
+    const jsonData = await readFileSync('./sample/leak.heapsnapshot', 'utf-8');
     const graphManager = new GraphManager(JSON.parse(jsonData));
+    graphManager.focusOnNode(12275, 4317);
     const jsonOutput = graphManager.exportGraphToJson();
     await writeFileSync('./output.heapsnapshot', jsonOutput, {encoding: 'utf-8'})
     console.log("See output in output.heapsnapshot");
