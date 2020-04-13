@@ -41,9 +41,14 @@ export class HeapNode {
     getNextEdges(): Map<HeapNode, Edge> {
         return new Map(this.nextNodes.entries());
     }
+
+    getOriginalEdgeCount(): number {
+        return this.originalNodeFields[4];
+    }
 }
 
 // "edge_fields":["type","name_or_index","to_node"]
 export interface Edge {
     type: number;
+    nameOrIndexToStrings: number|string;
 }
