@@ -69,12 +69,11 @@ export class HeapNode {
     }
 
     disconnectPrevNodes() {
-        for (const prevNode of this.prevNodes) {
+        for (const prevNode of this.getPrevNodes()) {
             const edgesToDelete = prevNode.getNextEdges().filter(edgeAndNode => edgeAndNode.node === this);
             for (const edgeToDelete of edgesToDelete) {
                 prevNode.removeNextNode(edgeToDelete.node, edgeToDelete.edge);
             }
-
         }
         this.prevNodes.splice(0);
     }

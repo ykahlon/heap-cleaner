@@ -62,14 +62,14 @@ export class GraphManager {
         }
         this.deleteOtherNodes(retainerNodes);
 
-        // const canReachRootNode = new Map<HeapNode, boolean>();
-        // canReachRootNode.set(rootNode, true);
-        // const nextNodes = nodeToFocus.getNextNodes();
-        // nodeToFocus.disconnectNextNodes();
-        // for (const nextNode of nextNodes) {
-        //     this.disconnectNodesWithNoPathFromRoot(nextNode, nodeToFocus, rootNode, canReachRootNode);
-        // }
-        // this.removeAllIsolatedNodes();
+        const canReachRootNode = new Map<HeapNode, boolean>();
+        canReachRootNode.set(rootNode, true);
+        const nextNodes = nodeToFocus.getNextNodes();
+        nodeToFocus.disconnectNextNodes();
+        for (const nextNode of nextNodes) {
+            this.disconnectNodesWithNoPathFromRoot(nextNode, nodeToFocus, rootNode, canReachRootNode);
+        }
+        this.removeAllIsolatedNodes();
     }
 
     private disconnectNodesWithNoPathFromRoot(node: HeapNode,
@@ -104,8 +104,10 @@ export class GraphManager {
         // Delete prev nodes not relevant to the node we focus on
         for (const [index, node] of [...this.nodeMap.entries()]) {
             if (!retainerNodes.has(node)) {
+                const nextNodes = node.getNextNodes();
+                const prevNodes = node.getPrevNodes();
                 node.disconnectNextNodes();
-                node.disconnectPrevNodes()
+                node.disconnectPrevNodes();
                 this.nodeMap.delete(index);
             }
         }
