@@ -52,6 +52,8 @@ export class GraphManager {
   }
 
   focusOnNode(nodeId: number, trueRootId: number) {
+    this.deleteNodesWithName('feedback cell', DeleteStrategy.REMOVE);
+
     const [nodeToFocus, rootNode] = [this.findNodeByNodeId(nodeId), this.findNodeByNodeId(trueRootId)];
 
     // When removing the first layer of next nodes. For each next node, recursively compare the set of retailres
@@ -88,13 +90,19 @@ export class GraphManager {
     // Delete prev nodes not relevant to the node we focus on
     for (const [index, node] of [...this.nodeMap.entries()]) {
       if (!retainerNodes.has(node)) {
-        const nextNodes = node.getNextNodes();
-        const prevNodes = node.getPrevNodes();
-        node.disconnectNextNodes();
-        node.disconnectPrevNodes();
-        this.nodeMap.delete(index);
+        this.deleteNode(index);
       }
     }
+  }
+
+  private deleteNode(indexInNodeMap) {
+    const node = this.nodeMap.get(indexInNodeMap);
+    if (!node) {
+      throw new Error('Cannot find node to delete. Index: ' + indexInNodeMap);
+    }
+    node.disconnectNextNodes();
+    node.disconnectPrevNodes();
+    this.nodeMap.delete(indexInNodeMap);
   }
 
   private collectRetainers(nodeToFocus: HeapNode): Set<HeapNode> {
@@ -162,4 +170,13 @@ export class GraphManager {
     }
     return children;
   }
+
+  private deleteNodesWithName(nodeName: string, REMOVE: DeleteStrategy) {
+
+  }
+}
+
+export enum DeleteStrategy {
+  REMOVE,
+  MERGE_PREV_AND_NEXT = 1,
 }
