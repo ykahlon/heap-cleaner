@@ -3,13 +3,12 @@ import {readFileSync, writeFileSync} from 'fs';
 
 
 // focusOnNode (by id)
-
 const run = async () => {
-    const jsonData = await readFileSync('./sample/leak.heapsnapshot', 'utf-8');
+    const jsonData = await readFileSync('./sample/detached_3313657_root7045.heapsnapshot', 'utf-8');
     const graphManager = new GraphManager(JSON.parse(jsonData));
-    graphManager.focusOnNode(12275, 4317);
+    graphManager.focusOnNode(3313657, 7045);
     const jsonOutput = graphManager.exportGraphToJson();
-    await writeFileSync('./output.heapsnapshot', jsonOutput, {encoding: 'utf-8'})
+    await writeFileSync('./output.heapsnapshot', jsonOutput, {encoding: 'utf-8'});
     console.log("See output in output.heapsnapshot");
 }
 

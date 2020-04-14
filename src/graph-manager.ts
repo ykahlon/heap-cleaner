@@ -56,7 +56,7 @@ export class GraphManager {
         // TODO - verify that rootNode is a root for nodeToFocus (i.e main window)
         // When removing the first layer of next nodes. For each next node, recursively compare the set of retailres
         // to the set of retainers of the focused node, if no common retainer found, remove edge between the current and the next.
-        const retainerNodes = this.collectRetainers(nodeToFocus);
+        let retainerNodes = this.collectRetainers(nodeToFocus);
         if (!retainerNodes.has(rootNode)) {
             throw new Error('Root node is not a retainer of the node to focus');
         }
@@ -64,11 +64,18 @@ export class GraphManager {
 
         const canReachRootNode = new Map<HeapNode, boolean>();
         canReachRootNode.set(rootNode, true);
-        const nextNodes = nodeToFocus.getNextNodes();
         nodeToFocus.disconnectNextNodes();
-        for (const nextNode of nextNodes) {
-            this.disconnectNodesWithNoPathFromRoot(nextNode, nodeToFocus, rootNode, canReachRootNode);
+        const prevNodes = nodeToFocus.getPrevNodes();
+        for (const prevNode of prevNodes) {
+            if (!this.collectRetainers(prevNode).has(rootNode)) {
+                nodeToFocus.removePrevNode(prevNode);
+            }
         }
+        retainerNodes = this.collectRetainers(nodeToFocus);
+        if (!retainerNodes.has(rootNode)) {
+            throw new Error('Root node is not a retainer of the node to focus');
+        }
+        this.deleteOtherNodes(retainerNodes);
         this.removeAllIsolatedNodes();
     }
 
@@ -113,7 +120,7 @@ export class GraphManager {
         }
     }
 
-    private collectRetainers(nodeToFocus: HeapNode) {
+    private collectRetainers(nodeToFocus: HeapNode): Set<HeapNode> {
         const retainerNodes = new Set<HeapNode>([...nodeToFocus.getPrevNodes()]);
         // Recursively collect all prev retainer nodes
         for (const retainerNode of retainerNodes) {

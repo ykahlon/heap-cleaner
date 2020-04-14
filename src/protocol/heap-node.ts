@@ -77,6 +77,16 @@ export class HeapNode {
         }
         this.prevNodes.splice(0);
     }
+
+    disconnectPrevNode(node: HeapNode) {
+        for (const prevNode of this.getPrevNodes().filter(prevNode => prevNode === node)) {
+            const edgesToDelete = prevNode.getNextEdges().filter(edgeAndNode => edgeAndNode.node === this);
+            for (const edgeToDelete of edgesToDelete) {
+                prevNode.removeNextNode(edgeToDelete.node, edgeToDelete.edge);
+            }
+        }
+        this.removePrevNode(node);
+    }
 }
 
 // "edge_fields":["type","name_or_index","to_node"]
