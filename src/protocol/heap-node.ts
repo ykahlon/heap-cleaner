@@ -1,7 +1,7 @@
 // "node_fields":["type","name","id","self_size","edge_count","trace_node_id"
 export class HeapNode {
     private readonly prevNodes: HeapNode[] = [];
-    private readonly nextNodes: Array<{ node: HeapNode, edge: Edge }> = [];
+    private readonly nextNodes: Array<EdgeAndNode> = [];
 
     constructor(public readonly originalNodeFields: number[],
                 public readonly originalIndex: number) {
@@ -33,7 +33,7 @@ export class HeapNode {
         return this.nextNodes.length;
     }
 
-    getNextEdges(): { node: HeapNode; edge: Edge }[] {
+    getNextEdges(): EdgeAndNode[] {
         return [...this.nextNodes];
     }
 
@@ -45,6 +45,10 @@ export class HeapNode {
         return this.originalNodeFields[2];
     }
 
+    getNodeNameIndex() {
+        return this.originalNodeFields[1];
+    }
+
     disconnectNextNodes() {
         for (const nextNode of [...this.nextNodes]) {
             nextNode.node.removePrevNode(this);
@@ -52,7 +56,7 @@ export class HeapNode {
         this.nextNodes.splice(0);
     }
 
-    private removeNextNode(node: HeapNode, edge: Edge) {
+    removeNextNode(node: HeapNode, edge: Edge) {
         const indexToDelete = this.nextNodes
             .findIndex(nextNode => nextNode.node === node && nextNode.edge === edge);
         if (indexToDelete === -1) return;
@@ -93,4 +97,9 @@ export class HeapNode {
 export interface Edge {
     type: number;
     nameOrIndexToStrings: number | string;
+}
+
+export interface EdgeAndNode {
+    edge: Edge;
+    node: HeapNode;
 }

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node --require ts-node/register src/cleaner.ts",
+    "start": "node --require ts-node/register --max-old-space-size=8192 --stack-size=160000000 src/cleaner.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
