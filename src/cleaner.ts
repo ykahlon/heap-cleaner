@@ -4,7 +4,7 @@ import {readFileSync, writeFileSync} from 'fs';
 
 // focusOnNode (by id)
 const run = async () => {
-    const jsonData = await readFileSync('./sample/detached_3313657_root7045.heapsnapshot', 'utf-8');
+    const jsonData = await readFileSync('./sample/detached_3313657_root_7045.heapsnapshot', 'utf-8');
     const graphManager = new GraphManager(JSON.parse(jsonData));
     graphManager.focusOnNode(3313657, 7045);
     const jsonOutput = graphManager.exportGraphToJson();

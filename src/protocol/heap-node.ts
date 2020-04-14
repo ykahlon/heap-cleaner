@@ -15,7 +15,7 @@ export class HeapNode {
         this.nextNodes.push({node, edge});
     }
 
-    removePrevNode(node: HeapNode) {
+    private removePrevNode(node: HeapNode) {
         let indexToDelete: number;
         while ((indexToDelete = this.prevNodes.findIndex((item) => item === node)) !== -1) {
             this.prevNodes.splice(indexToDelete, 1);
@@ -52,7 +52,7 @@ export class HeapNode {
         this.nextNodes.splice(0);
     }
 
-    removeNextNode(node: HeapNode, edge: Edge) {
+    private removeNextNode(node: HeapNode, edge: Edge) {
         const indexToDelete = this.nextNodes
             .findIndex(nextNode => nextNode.node === node && nextNode.edge === edge);
         if (indexToDelete === -1) return;

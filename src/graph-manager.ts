@@ -50,61 +50,31 @@ export class GraphManager {
         this.jsonHeapDump.edge_count = this.jsonHeapDump.edges.length / 3;
         return JSON.stringify(this.jsonHeapDump);
     }
-
     focusOnNode(nodeId: number, trueRootId: number) {
         const [nodeToFocus, rootNode] = [this.findNodeByNodeId(nodeId), this.findNodeByNodeId(trueRootId)];
-        // TODO - verify that rootNode is a root for nodeToFocus (i.e main window)
         // When removing the first layer of next nodes. For each next node, recursively compare the set of retailres
         // to the set of retainers of the focused node, if no common retainer found, remove edge between the current and the next.
-        let retainerNodes = this.collectRetainers(nodeToFocus);
-        if (!retainerNodes.has(rootNode)) {
-            throw new Error('Root node is not a retainer of the node to focus');
-        }
-        this.deleteOtherNodes(retainerNodes);
 
-        const canReachRootNode = new Map<HeapNode, boolean>();
-        canReachRootNode.set(rootNode, true);
+        this.deleteNonRetainerNodes(nodeToFocus, rootNode);
         nodeToFocus.disconnectNextNodes();
+
         const prevNodes = nodeToFocus.getPrevNodes();
         for (const prevNode of prevNodes) {
             if (!this.collectRetainers(prevNode).has(rootNode)) {
-                nodeToFocus.removePrevNode(prevNode);
+                nodeToFocus.disconnectPrevNode(prevNode);
             }
         }
-        retainerNodes = this.collectRetainers(nodeToFocus);
+
+        this.deleteNonRetainerNodes(nodeToFocus, rootNode);
+        this.removeAllIsolatedNodes();
+    }
+
+    private deleteNonRetainerNodes(nodeToFocus: HeapNode, rootNode: HeapNode) {
+        const retainerNodes = this.collectRetainers(nodeToFocus);
         if (!retainerNodes.has(rootNode)) {
             throw new Error('Root node is not a retainer of the node to focus');
         }
         this.deleteOtherNodes(retainerNodes);
-        this.removeAllIsolatedNodes();
-    }
-
-    private disconnectNodesWithNoPathFromRoot(node: HeapNode,
-                                              nodeToFocus: HeapNode,
-                                              rootNode: HeapNode,
-                                              canReachRootNode: Map<HeapNode, boolean>,
-                                              visited = new Set<HeapNode>()) {
-        if (canReachRootNode.has(node)) {
-            return canReachRootNode.get(node)!;
-        }
-
-        const prevNodes = node.getPrevNodes().filter((prev) => prev !== nodeToFocus && !visited.has(prev));
-        const hasPathFromRoot = prevNodes.some((prevNode) => {
-            visited.add(prevNode);
-            return this.disconnectNodesWithNoPathFromRoot(prevNode, nodeToFocus, rootNode, canReachRootNode, visited);
-        });
-        canReachRootNode.set(node, hasPathFromRoot);
-
-        if (!hasPathFromRoot) {
-            const nextNodes = node.getNextNodes().filter((nextNode) => !visited.has(nextNode));
-            node.disconnectNextNodes();
-            for (const nextNode of nextNodes) {
-                visited.add(nextNode);
-                this.disconnectNodesWithNoPathFromRoot(nextNode, nodeToFocus, rootNode, canReachRootNode, visited);
-            }
-        }
-
-        return hasPathFromRoot;
     }
 
     private deleteOtherNodes(retainerNodes: Set<HeapNode>) {
