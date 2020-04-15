@@ -12,10 +12,15 @@ export class GraphManager {
     }
 
     constructGraph() {
+        console.log('Building graph - start!');
+        console.log('reading nodes - start!');
         for (let i = 0; i < this.jsonHeapDump.nodes.length; i += 6) {
             let heapNode = new HeapNode(this.jsonHeapDump.nodes.slice(i, i + 6), i);
             this.nodeMap.set(i, heapNode);
         }
+        console.log('reading nodes - end. Read: ' + this.nodeMap.size + ' nodes.');
+
+        console.log('reading edges - start!');
         let currentEdgeIndex = 0;
         for (const node of this.getSortedNodes()) {
             for (let i = currentEdgeIndex; i < currentEdgeIndex + node.getOriginalEdgeCount() * 3; i += 3) {
@@ -27,6 +32,8 @@ export class GraphManager {
             }
             currentEdgeIndex += node.getOriginalEdgeCount() * 3;
         }
+        console.log('reading edges - end. Read: ' + (currentEdgeIndex / 3) + ' edges.');
+        console.log('Building graph - end!')
     }
 
     // "node_fields":["type","name","id","self_size","edge_count","trace_node_id"
@@ -52,21 +59,31 @@ export class GraphManager {
     }
 
     focusOnNode(nodeId: number, trueRootId: number) {
+        console.log('Focus on node - start!');
+        console.log('Finding nodes...');
         const [nodeToFocus, rootNode] = [this.findNodeByNodeId(nodeId), this.findNodeByNodeId(trueRootId)];
+        console.log('Disconnecting the root from the previous nodes...');
         rootNode.disconnectPrevNodes();
-        //this.deleteNodeById(1694199);
+
+        console.log('Removing feedback cells...');
         this.disconnectEdgesWithName('feedback_cell');
+        console.log('Removing weak links...');
         this.disconnectEdgesWithType('weak');
+        console.log('Removing all nodes with name starts with Detached (except the node to focus)...');
         this.deleteAllDetachedNodes(nodeToFocus);
         // When removing the first layer of next nodes. For each next node, recursively compare the set of retailres
         // to the set of retainers of the focused node, if no common retainer found, remove edge between the current and the next.
 
+        console.log('Removing all nodes that are not retainers of node to focus...');
         // Cleanup some of the data structure by removing non-retainer nodes.
         this.deleteNonRetainerNodes(nodeToFocus, rootNode);
 
+        console.log('Disconnecting the node to focus from its next nodes...');
         // disconnect the next layer of nodes and then remove all the nodes that
         // are not children of the root node.
         nodeToFocus.disconnectNextNodes();
+
+        console.log('Removing all nodes that are not referenced by the root node...');
         const allRootChildren = this.getAllChildren(rootNode);
         allRootChildren.add(rootNode);
         if (!allRootChildren.has(nodeToFocus)) {
@@ -74,9 +91,11 @@ export class GraphManager {
         }
         this.deleteOtherNodes(allRootChildren);
 
+        console.log('Cleanup...');
         // cleanup the graph
         this.deleteNonRetainerNodes(nodeToFocus, rootNode);
         this.removeAllIsolatedNodes();
+        console.log('Focus on node - end!');
     }
 
     private deleteNonRetainerNodes(nodeToFocus: HeapNode, rootNode: HeapNode) {
@@ -198,7 +217,7 @@ export class GraphManager {
     }
 
 
-    private deleteNodesWithName(...namesToDelete: string[]) {
+     deleteNodesWithName(...namesToDelete: string[]) {
         for (const [nodeIndex, node] of this.nodeMap.entries()) {
             for (const nameToDelete of namesToDelete) {
                 const nodeName = this.jsonHeapDump.strings[node.getNodeNameIndex()];
@@ -220,7 +239,7 @@ export class GraphManager {
         }
     }
 
-    private deleteNodeById(id: number) {
+     deleteNodeById(id: number) {
         const nodeIndex = [...this.nodeMap.entries()].filter(([index, node]) => node.getNodeId() === id)[0][0];
         this.deleteNode(nodeIndex);
     }
