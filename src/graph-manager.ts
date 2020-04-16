@@ -19,7 +19,6 @@ export class GraphManager {
             this.nodeMap.set(i, heapNode);
         }
         console.log('reading nodes - end. Read: ' + this.nodeMap.size + ' nodes.');
-
         console.log('reading edges - start!');
         let currentEdgeIndex = 0;
         for (const node of this.getSortedNodes()) {
