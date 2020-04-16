@@ -53,6 +53,20 @@ export class GraphManager {
                 this.jsonHeapDump.edges.push(edge.type, edge.nameOrIndexToStrings as number, nodeIndices.get(node)!);
             }
         }
+
+        const origLocation = this.jsonHeapDump.locations;
+        this.jsonHeapDump.locations = [];
+        for (let i = 0; i < origLocation.length; i += 4) {
+            const location = origLocation.slice(i, i + 4);
+            const origNodeIndex = location[0];
+            const node = this.nodeMap.get(origNodeIndex);
+            if (!node) {
+                continue;
+            }
+            location[0] = nodeIndices.get(node);
+            this.jsonHeapDump.locations.push(...location);
+        }
+
         this.jsonHeapDump.snapshot.node_count = this.nodeMap.size;
         this.jsonHeapDump.snapshot.edge_count = this.jsonHeapDump.edges.length / 3;
         return JSON.stringify(this.jsonHeapDump);
@@ -217,7 +231,7 @@ export class GraphManager {
     }
 
 
-     deleteNodesWithName(...namesToDelete: string[]) {
+    deleteNodesWithName(...namesToDelete: string[]) {
         for (const [nodeIndex, node] of this.nodeMap.entries()) {
             for (const nameToDelete of namesToDelete) {
                 const nodeName = this.jsonHeapDump.strings[node.getNodeNameIndex()];
@@ -239,7 +253,7 @@ export class GraphManager {
         }
     }
 
-     deleteNodeById(id: number) {
+    deleteNodeById(id: number) {
         const nodeIndex = [...this.nodeMap.entries()].filter(([index, node]) => node.getNodeId() === id)[0][0];
         this.deleteNode(nodeIndex);
     }
