@@ -68,6 +68,7 @@ export class GraphManager {
 
         this.jsonHeapDump.snapshot.node_count = this.nodeMap.size;
         this.jsonHeapDump.snapshot.edge_count = this.jsonHeapDump.edges.length / 3;
+        console.log(`exporting graph. Total nodes: ${this.jsonHeapDump.snapshot.node_count}, total edges: ${this.jsonHeapDump.snapshot.edge_count}`);
         return JSON.stringify(this.jsonHeapDump);
     }
 
@@ -83,7 +84,7 @@ export class GraphManager {
         console.log('Removing weak links...');
         this.disconnectEdgesWithType('weak');
         console.log('Removing all nodes with name starts with Detached (except the node to focus)...');
-        this.deleteAllDetachedNodes(nodeToFocus);
+        //this.deleteAllDetachedNodes(nodeToFocus);
         // When removing the first layer of next nodes. For each next node, recursively compare the set of retailres
         // to the set of retainers of the focused node, if no common retainer found, remove edge between the current and the next.
 
@@ -103,6 +104,9 @@ export class GraphManager {
             throw new Error('Node to focus needs to be a child of the root node after the non retainer deletion.');
         }
         this.deleteOtherNodes(allRootChildren);
+        this.deleteNonRetainerNodes(nodeToFocus, rootNode);
+
+      //  this.removeCycles(rootNode, nodeToFocus);
 
         console.log('Cleanup...');
         // cleanup the graph
@@ -167,11 +171,23 @@ export class GraphManager {
             .sort((a, b) => a.originalIndex - b.originalIndex);
     }
 
-    private visitRecursivePrevs(node: HeapNode, visitor: (node) => (boolean)) {
+    private visitRecursivePrevs(node: HeapNode, visitor: (node: HeapNode) => (boolean)) {
         for (const prevNode of node.getPrevNodes()) {
             if (visitor(prevNode)) {
                 this.visitRecursivePrevs(prevNode, visitor);
             }
+        }
+    }
+
+    private visitRecursiveNexts(node: HeapNode, visitor: (node: HeapNode) => (boolean)) {
+       const nextNodesToVisit = new Set<HeapNode>();
+        for (const nextNode of node.getNextNodes()) {
+            if (visitor(nextNode)) {
+                nextNodesToVisit.add(nextNode);
+            }
+        }
+        for (const nodeToVisit of nextNodesToVisit) {
+            this.visitRecursiveNexts(nodeToVisit, visitor);
         }
     }
 
@@ -203,6 +219,37 @@ export class GraphManager {
             stack.push(...tempStack.values());
         }
         return children;
+    }
+
+    private removeCycles(rootNode: HeapNode, nodeToFocus: HeapNode) {
+        console.log('removing cycles in the graph....');
+        const visited = new Set<HeapNode>();
+        visited.add(rootNode);
+
+        let nexts = rootNode.getNextNodes();
+        let layer = 0;
+        while (nexts.length) {
+            console.log(`removing cycles - layer: ${layer}. Layer size: ${nexts.length}.`);
+            const nextLayer: HeapNode[] = [];
+            for (const next of nexts) {
+                if (!visited.has(next)) {
+                    for (const prevNode of next.getPrevNodes().filter(prev => !visited.has(prev))) {
+                        next.disconnectPrevNode(prevNode);
+                        if (prevNode === next) {
+                            console.log('removed self reference');
+                        }
+
+                    }
+                }
+                nextLayer.push(...next.getNextNodes().filter(n => !visited.has(n)));
+            }
+            for (const visitedNode of nexts) {
+                visited.add(visitedNode);
+            }
+            nexts = nextLayer;
+            layer++;
+            this.deleteNonRetainerNodes(nodeToFocus, rootNode);
+        }
     }
 
     private disconnectEdgesWithName(...edgeNamesToDisconnect: string[]) {
