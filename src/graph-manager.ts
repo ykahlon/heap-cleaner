@@ -40,32 +40,51 @@ export class GraphManager {
     const sortedNodes = this.getSortedNodes();
     this.jsonHeapDump.nodes = [];
     this.jsonHeapDump.edges = [];
+    const allStrings: string[] = [];
+    const stringsWithIndex = new Map<string, number>();
+
     const nodeIndices = new Map<HeapNode, number>();
     for (const heapNode of sortedNodes) {
+      const nodeName = this.jsonHeapDump.strings[heapNode.getNodeNameIndex()];
+      if (!stringsWithIndex.has(nodeName)) {
+        allStrings.push(nodeName);
+        stringsWithIndex.set(nodeName, allStrings.length - 1);
+      }
+      heapNode.originalNodeFields[1] = stringsWithIndex.get(nodeName)!;
       heapNode.originalNodeFields[4] = heapNode.getEdgeCount();
       nodeIndices.set(heapNode, this.jsonHeapDump.nodes.length);
       this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields);
     }
     for (const heapNode of sortedNodes) {
       for (const {node, edge} of heapNode.getNextEdges()) {
+        if (typeof edge.nameOrIndexToStrings === 'number') {
+          const edgeName = this.jsonHeapDump.strings[edge.nameOrIndexToStrings as number];
+          if (!stringsWithIndex.has(edgeName)) {
+            allStrings.push(edgeName);
+            stringsWithIndex.set(edgeName, allStrings.length - 1);
+          }
+          edge.nameOrIndexToStrings = stringsWithIndex.get(edgeName)!;
+        }
+
+
         // TODO: casting to number even though it may be a string
         this.jsonHeapDump.edges.push(edge.type, edge.nameOrIndexToStrings as number, nodeIndices.get(node)!);
       }
     }
 
-    const origLocation = this.jsonHeapDump.locations;
-    this.jsonHeapDump.locations = [];
-    for (let i = 0; i < origLocation.length; i += 4) {
-      const location = origLocation.slice(i, i + 4);
-      const origNodeIndex = location[0];
-      const node = this.nodeMap.get(origNodeIndex);
-      if (!node) {
-        continue;
-      }
-      location[0] = nodeIndices.get(node);
-      this.jsonHeapDump.locations.push(...location);
-    }
-
+    // const origLocation = this.jsonHeapDump.locations;
+    // this.jsonHeapDump.locations = [];
+    // for (let i = 0; i < origLocation.length; i += 4) {
+    //   const location = origLocation.slice(i, i + 4);
+    //   const origNodeIndex = location[0];
+    //   const node = this.nodeMap.get(origNodeIndex);
+    //   if (!node) {
+    //     continue;
+    //   }
+    //   location[0] = nodeIndices.get(node);
+    //   this.jsonHeapDump.locations.push(...location);
+    // }
+    this.jsonHeapDump.strings = allStrings;
     this.jsonHeapDump.snapshot.node_count = this.nodeMap.size;
     this.jsonHeapDump.snapshot.edge_count = this.jsonHeapDump.edges.length / 3;
     console.log(`exporting graph. Total nodes: ${this.jsonHeapDump.snapshot.node_count}, total edges: ${this.jsonHeapDump.snapshot.edge_count}`);

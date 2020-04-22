@@ -5,12 +5,13 @@ import {readFileSync, writeFileSync} from 'fs';
 // focusOnNode (by id)
 const run = async () => {
   console.log('reading file - start!');
-  const jsonData = await readFileSync('./sample/43891.heapsnapshot', 'utf-8');
+ // const jsonData = await readFileSync('./sample/43891.heapsnapshot', 'utf-8');
+  const jsonData = await readFileSync('./sample/c.heapsnapshot', 'utf-8');
   console.log('reading file - end!');
 
   const graphManager = new GraphManager(JSON.parse(jsonData));
-  graphManager.focusOnNode(graphManager.findNodeByName('Detached Window').getNodeId(),
-      graphManager.findNodeByName('(GC roots)').getNodeId());
+   graphManager.focusOnNode(graphManager.findNodeByName('Detached Window').getNodeId(),
+       graphManager.findNodeByName('(GC roots)').getNodeId());
   const jsonOutput = graphManager.exportGraphToJson();
   await writeFileSync('./output.heapsnapshot', jsonOutput, {encoding: 'utf-8'});
   console.log("See output in output.heapsnapshot");

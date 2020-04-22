@@ -31,7 +31,11 @@ export class HeapNode {
     }
 
     getEdgeCount() {
-        return this.nextNodes.size;
+        let counter = 0;
+        for (const edges of this.nextNodes.values()) {
+            counter += edges.size;
+        }
+        return counter;
     }
 
     getNextEdges(): EdgeAndNode[] {
