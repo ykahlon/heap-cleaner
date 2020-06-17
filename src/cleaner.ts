@@ -2,35 +2,27 @@ import {GraphManager} from "./graph-manager";
 import {readFileSync, writeFileSync} from 'fs';
 
 
-// focusOnNode (by id)
-const run = async () => {
+// Reduces the heap snapshot with focus on a node with a given id or if not provided,
+// on a single detached window found in the snapshot.
+const run = async (filePath: string, nodeId: string | undefined) => {
   console.log('reading file - start!');
- // const jsonData = await readFileSync('./sample/43891.heapsnapshot', 'utf-8');
-  const jsonData = await readFileSync('./sample/c.heapsnapshot', 'utf-8');
+  const jsonData = await readFileSync(filePath, 'utf-8');
   console.log('reading file - end!');
 
   const graphManager = new GraphManager(JSON.parse(jsonData));
-   graphManager.focusOnNode(graphManager.findNodeByName('Detached Window').getNodeId(),
-       graphManager.findNodeByName('(GC roots)').getNodeId());
+  const nodeIdToFocus = nodeId === undefined
+      ? graphManager.findNodeByName('Detached Window').getNodeId()
+      : parseInt(nodeId);
+  graphManager.focusOnNode(nodeIdToFocus,
+      graphManager.findNodeByName('(GC roots)').getNodeId());
   const jsonOutput = graphManager.exportGraphToJson();
   await writeFileSync('./output.heapsnapshot', jsonOutput, {encoding: 'utf-8'});
   console.log("See output in output.heapsnapshot");
 };
 
-
-// noinspection JSUnusedLocalSymbols
-const compare = async () => {
-  const origJson = JSON.parse(await readFileSync('./sample/sample_heap_dump.heapsnapshot', 'utf-8'));
-  const outputJson = JSON.parse(await readFileSync('./output.heapsnapshot', 'utf-8'));
-  const traverse = origJson.edges;
-  for (let i = 0; i < traverse.length; i++) {
-    if (traverse[i] != outputJson.edges[i]) {
-      debugger;
-    }
-  }
-};
-
-run().then();
+console.log(process.argv.slice(2));
+const appParams = process.argv.slice(2);
+run(/* filePath */ appParams[0], /* nodeId */ appParams[1]).then();
 
 
 

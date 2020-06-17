@@ -1,3 +1,4 @@
+/** The structure of the heap snapshot json. */
 export interface JsonHeapDump {
     snapshot: {
         meta: {

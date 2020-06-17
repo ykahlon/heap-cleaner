@@ -11,6 +11,7 @@ export class GraphManager {
     this.constructGraph();
   }
 
+  /** Constructs the heap snapshot graph from the json object. */
   constructGraph() {
     console.log('Building graph - start!');
     console.log('reading nodes - start!');
@@ -35,7 +36,7 @@ export class GraphManager {
     console.log('Building graph - end!')
   }
 
-  // "node_fields":["type","name","id","self_size","edge_count","trace_node_id"
+  /** Exports the graph back to a json representation. */
   exportGraphToJson(): string {
     const sortedNodes = this.getSortedNodes();
     this.jsonHeapDump.nodes = [];
@@ -72,6 +73,7 @@ export class GraphManager {
       }
     }
 
+    // TODO: Currently chrome ignores the line numbers when loading a snapshot file, uncomment and test once supported.
     // const origLocation = this.jsonHeapDump.locations;
     // this.jsonHeapDump.locations = [];
     // for (let i = 0; i < origLocation.length; i += 4) {
@@ -91,6 +93,7 @@ export class GraphManager {
     return JSON.stringify(this.jsonHeapDump);
   }
 
+  /** Reduces the graph to focus on retainers for a specific node. */
   focusOnNode(nodeId: number, trueRootId: number) {
     console.log('Focus on node - start!');
     console.log('Finding nodes...');
@@ -98,13 +101,15 @@ export class GraphManager {
     console.log('Disconnecting the root from the previous nodes...');
     rootNode.disconnectPrevNodes();
 
+    // Optimization (need to verify if correct) - feedback cells can be ignored when exploring memory leaks.
     console.log('Removing feedback cells...');
     this.disconnectEdgesWithName('feedback_cell');
+
     console.log('Removing weak links...');
     this.disconnectEdgesWithType('weak');
-    //this.deleteAllDetachedNodes(nodeToFocus);
-    // When removing the first layer of next nodes. For each next node, recursively compare the set of retailres
-    // to the set of retainers of the focused node, if no common retainer found, remove edge between the current and the next.
+
+    console.log('Removing all detached nodes...');
+    this.deleteAllDetachedNodes(nodeToFocus);
 
     console.log('Removing all nodes that are not retainers of node to focus...');
     // Cleanup some of the data structure by removing non-retainer nodes.
@@ -197,18 +202,6 @@ export class GraphManager {
     }
   }
 
-  private visitRecursiveNexts(node: HeapNode, visitor: (node: HeapNode) => (boolean)) {
-    const nextNodesToVisit = new Set<HeapNode>();
-    for (const nextNode of node.getNextNodes()) {
-      if (visitor(nextNode)) {
-        nextNodesToVisit.add(nextNode);
-      }
-    }
-    for (const nodeToVisit of nextNodesToVisit) {
-      this.visitRecursiveNexts(nodeToVisit, visitor);
-    }
-  }
-
   private removeAllIsolatedNodes() {
     for (const [location, node] of [...this.nodeMap.entries()]) {
       if (!node.getNextNodes().length && !node.getPrevNodes().length) {
@@ -290,18 +283,6 @@ export class GraphManager {
     }
   }
 
-
-  deleteNodesWithName(...namesToDelete: string[]) {
-    for (const [nodeIndex, node] of this.nodeMap.entries()) {
-      for (const nameToDelete of namesToDelete) {
-        const nodeName = this.jsonHeapDump.strings[node.getNodeNameIndex()];
-        if (nodeName === nameToDelete) {
-          this.deleteNode(nodeIndex);
-        }
-      }
-    }
-  }
-
   findNodeByName(name: string): HeapNode {
     for (const [nodeIndex, node] of this.nodeMap.entries()) {
       const nodeName = this.jsonHeapDump.strings[node.getNodeNameIndex()];
@@ -323,10 +304,5 @@ export class GraphManager {
         this.deleteNode(nodeIndex);
       }
     }
-  }
-
-  deleteNodeById(id: number) {
-    const nodeIndex = [...this.nodeMap.entries()].filter(([index, node]) => node.getNodeId() === id)[0][0];
-    this.deleteNode(nodeIndex);
   }
 }

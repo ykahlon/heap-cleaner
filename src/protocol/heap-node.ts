@@ -1,4 +1,7 @@
 // "node_fields":["type","name","id","self_size","edge_count","trace_node_id"
+
+
+/** A representation of a single node in the graph. */
 export class HeapNode {
     private readonly prevNodes = new Set<HeapNode>();
     private readonly nextNodes = new Map<HeapNode, Set<Edge>>();
@@ -68,14 +71,14 @@ export class HeapNode {
     }
 
     removeNextNode(node: HeapNode, edge: Edge) {
-       const edges = this.nextNodes.get(node);
-       if (edges) {
-           edges.delete(edge);
-           if (!edges.size) {
-               this.nextNodes.delete(node);
-               node.removePrevNode(this);
-           }
-       }
+        const edges = this.nextNodes.get(node);
+        if (edges) {
+            edges.delete(edge);
+            if (!edges.size) {
+                this.nextNodes.delete(node);
+                node.removePrevNode(this);
+            }
+        }
     }
 
     getPrevNodes(): HeapNode[] {
