@@ -57,7 +57,7 @@ export class GraphManager {
       this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields);
     }
     for (const heapNode of sortedNodes) {
-      for (const {node, edge} of heapNode.getNextEdges()) {
+      for (const {node, edge} of heapNode.getNextNodesAndEdges()) {
         if (typeof edge.nameOrIndexToStrings === 'number') {
           const edgeName = this.jsonHeapDump.strings[edge.nameOrIndexToStrings as number];
           if (!stringsWithIndex.has(edgeName)) {
@@ -105,11 +105,8 @@ export class GraphManager {
     console.log('Removing feedback cells...');
     this.disconnectEdgesWithName('feedback_cell');
 
-    console.log('Removing weak links...');
+//    console.log('Removing weak links...');
     this.disconnectEdgesWithType('weak');
-
-    console.log('Removing all detached nodes...');
-    this.deleteAllDetachedNodes(nodeToFocus);
 
     console.log('Removing all nodes that are not retainers of node to focus...');
     // Cleanup some of the data structure by removing non-retainer nodes.
@@ -261,10 +258,10 @@ export class GraphManager {
 
   private disconnectEdgesWithName(...edgeNamesToDisconnect: string[]) {
     for (const node of this.nodeMap.values()) {
-      for (const edgeNameToDelete of edgeNamesToDisconnect) {
-        for (const nextEdgeAndNode of node.getNextEdges()) {
+      for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
+        for (const edgeNameToDelete of edgeNamesToDisconnect) {
           if (this.jsonHeapDump.strings[nextEdgeAndNode.edge.nameOrIndexToStrings] === edgeNameToDelete) {
-            node.removeNextNode(nextEdgeAndNode.node, nextEdgeAndNode.edge);
+            node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge);
           }
         }
       }
@@ -273,10 +270,10 @@ export class GraphManager {
 
   private disconnectEdgesWithType(...edgeTypesToDisconnect: string[]) {
     for (const node of this.nodeMap.values()) {
-      for (const edgeTypeToDelete of edgeTypesToDisconnect) {
-        for (const nextEdgeAndNode of node.getNextEdges()) {
+      for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
+        for (const edgeTypeToDelete of edgeTypesToDisconnect) {
           if (this.jsonHeapDump.snapshot.meta.edge_types[0][nextEdgeAndNode.edge.type] === edgeTypeToDelete) {
-            node.removeNextNode(nextEdgeAndNode.node, nextEdgeAndNode.edge);
+            node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge);
           }
         }
       }

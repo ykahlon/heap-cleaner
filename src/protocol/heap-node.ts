@@ -41,7 +41,7 @@ export class HeapNode {
         return counter;
     }
 
-    getNextEdges(): EdgeAndNode[] {
+  getNextNodesAndEdges(): EdgeAndNode[] {
         const result: EdgeAndNode[] = [];
         for (const [node, edges] of this.nextNodes.entries()) {
             for (const edge of edges) {
@@ -64,13 +64,13 @@ export class HeapNode {
     }
 
     disconnectNextNodes() {
-        for (const nextNode of [...this.nextNodes.keys()]) {
+      for (const nextNode of this.nextNodes.keys()) {
             nextNode.removePrevNode(this);
         }
         this.nextNodes.clear();
     }
 
-    removeNextNode(node: HeapNode, edge: Edge) {
+  removeEdge(node: HeapNode, edge: Edge) {
         const edges = this.nextNodes.get(node);
         if (edges) {
             edges.delete(edge);
@@ -91,10 +91,7 @@ export class HeapNode {
 
     disconnectPrevNodes() {
         for (const prevNode of this.getPrevNodes()) {
-            const edgesToDelete = prevNode.getNextEdges().filter(edgeAndNode => edgeAndNode.node === this);
-            for (const edgeToDelete of edgesToDelete) {
-                prevNode.removeNextNode(edgeToDelete.node, edgeToDelete.edge);
-            }
+          prevNode.nextNodes.delete(this);
         }
         this.prevNodes.clear();
     }
