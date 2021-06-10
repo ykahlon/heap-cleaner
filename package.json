@@ -14,5 +14,9 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "stream": "0.0.2",
+    "stream-json": "^1.7.1"
+  }
 }

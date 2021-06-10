@@ -165,15 +165,13 @@ export class GraphManager {
 
   private collectRetainers(nodeToFocus: HeapNode): Set<HeapNode> {
     const retainerNodes = new Set<HeapNode>([...nodeToFocus.getPrevNodes()]);
-    // Recursively collect all prev retainer nodes
+    // collect all prev retainer nodes iteratively as recursion runs into issues for large trees
     for (const retainerNode of retainerNodes) {
-      this.visitRecursivePrevs(retainerNode, (node) => {
-        if (retainerNodes.has(node)) {
-          return false;
+      for (const prevNode of retainerNode.getPrevNodes()) {
+        if (!retainerNodes.has(prevNode)) {
+          retainerNodes.add(prevNode);
         }
-        retainerNodes.add(node);
-        return true;
-      });
+      }
     }
     return retainerNodes;
   }
@@ -189,14 +187,6 @@ export class GraphManager {
   private getSortedNodes(): HeapNode[] {
     return [...this.nodeMap.values()]
         .sort((a, b) => a.originalIndex - b.originalIndex);
-  }
-
-  private visitRecursivePrevs(node: HeapNode, visitor: (node: HeapNode) => (boolean)) {
-    for (const prevNode of node.getPrevNodes()) {
-      if (visitor(prevNode)) {
-        this.visitRecursivePrevs(prevNode, visitor);
-      }
-    }
   }
 
   private removeAllIsolatedNodes() {
@@ -224,7 +214,10 @@ export class GraphManager {
         }
       }
       stack.splice(0);
-      stack.push(...tempStack.values());
+      // we avoid doing ...tempStack.values() as it fails for large sets
+      for (const t of tempStack.values()) {
+         stack.push(t);
+      }
     }
     return children;
   }
