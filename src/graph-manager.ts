@@ -107,6 +107,7 @@ export class GraphManager {
 
 //    console.log('Removing weak links...');
     this.disconnectEdgesWithType('weak');
+    this.disconnectNodesWithName('WeakMap');
 
     console.log('Removing all nodes that are not retainers of node to focus...');
     // Cleanup some of the data structure by removing non-retainer nodes.
@@ -278,6 +279,16 @@ export class GraphManager {
     }
   }
 
+  private disconnectNodesWithName(...nodeNamesToDisconnect: string[]) {
+    for (const node of this.nodeMap.values()) {
+      for (const nodeNameToDelete of nodeNamesToDisconnect) {
+        if (this.jsonHeapDump.strings[node.getNodeNameIndex()] === nodeNameToDelete) {
+          node.disconnectNextNodes();
+          node.disconnectPrevNodes();
+        }
+      }
+    }
+  }
   findNodeByName(name: string): HeapNode {
     for (const [nodeIndex, node] of this.nodeMap.entries()) {
       const nodeName = this.jsonHeapDump.strings[node.getNodeNameIndex()];
