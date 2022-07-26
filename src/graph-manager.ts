@@ -140,7 +140,6 @@ export class GraphManager {
     if (!retainerNodes.has(rootNode)) {
       throw new Error('Root node is not a retainer of the node to focus');
     }
-    retainerNodes.add(nodeToFocus);
     this.deleteOtherNodes(retainerNodes);
   }
 
@@ -164,17 +163,20 @@ export class GraphManager {
   }
 
   private collectRetainers(nodeToFocus: HeapNode): Set<HeapNode> {
-    const retainerNodes = new Set<HeapNode>([...nodeToFocus.getPrevNodes()]);
-    // Recursively collect all prev retainer nodes
-    for (const retainerNode of retainerNodes) {
-      this.visitRecursivePrevs(retainerNode, (node) => {
-        if (retainerNodes.has(node)) {
-          return false;
+    const retainerNodes = new Set<HeapNode>([]);
+    let queue = [nodeToFocus];
+    while (queue.length > 0) {
+      const prevNode = queue.pop();
+      if (!retainerNodes.has(prevNode)) {
+        retainerNodes.add(prevNode);
+        const prevNodes = prevNode.getPrevNodes();
+        while (prevNodes.length > 0) {
+          const chunk = prevNodes.splice(0, 1000);
+          queue.push(...chunk);
         }
-        retainerNodes.add(node);
-        return true;
-      });
+      }
     }
+
     return retainerNodes;
   }
 
@@ -189,14 +191,6 @@ export class GraphManager {
   private getSortedNodes(): HeapNode[] {
     return [...this.nodeMap.values()]
         .sort((a, b) => a.originalIndex - b.originalIndex);
-  }
-
-  private visitRecursivePrevs(node: HeapNode, visitor: (node: HeapNode) => (boolean)) {
-    for (const prevNode of node.getPrevNodes()) {
-      if (visitor(prevNode)) {
-        this.visitRecursivePrevs(prevNode, visitor);
-      }
-    }
   }
 
   private removeAllIsolatedNodes() {
@@ -224,7 +218,11 @@ export class GraphManager {
         }
       }
       stack.splice(0);
-      stack.push(...tempStack.values());
+      const nodes = Array.from(tempStack.values());
+      while (nodes.length > 0) {
+        const chunk = nodes.splice(0, 1000);
+        stack.push(...chunk);
+      }
     }
     return children;
   }
