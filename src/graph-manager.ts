@@ -1,5 +1,5 @@
-import {JsonHeapDump} from "./protocol/json-heap-dump";
-import {Edge, HeapNode} from "./protocol/heap-node";
+import { JsonHeapDump } from "./protocol/json-heap-dump";
+import { Edge, HeapNode } from "./protocol/heap-node";
 
 // TODO: consider parsing node/edge types (hardcoded right now)
 // TODO: check if need to modify functions, trace, samples etc
@@ -13,27 +13,34 @@ export class GraphManager {
 
   /** Constructs the heap snapshot graph from the json object. */
   constructGraph() {
-    console.log('Building graph - start!');
-    console.log('reading nodes - start!');
+    console.log(new Date().toISOString(), "Building graph - start!");
+    console.log("reading nodes - start!");
     for (let i = 0; i < this.jsonHeapDump.nodes.length; i += 6) {
       let heapNode = new HeapNode(this.jsonHeapDump.nodes.slice(i, i + 6), i);
       this.nodeMap.set(i, heapNode);
     }
-    console.log('reading nodes - end. Read: ' + this.nodeMap.size + ' nodes.');
-    console.log('reading edges - start!');
+    console.log("reading nodes - end. Read: " + this.nodeMap.size + " nodes.");
+    console.log("reading edges - start!");
     let currentEdgeIndex = 0;
     for (const node of this.getSortedNodes()) {
-      for (let i = currentEdgeIndex; i < currentEdgeIndex + node.getOriginalEdgeCount() * 3; i += 3) {
-        const [type, nameOrIndexToStrings, toNodeOriginalIndex] = this.jsonHeapDump.edges.slice(i, i + 3);
-        const edge: Edge = {type, nameOrIndexToStrings};
+      for (
+        let i = currentEdgeIndex;
+        i < currentEdgeIndex + node.getOriginalEdgeCount() * 3;
+        i += 3
+      ) {
+        const [type, nameOrIndexToStrings, toNodeOriginalIndex] =
+          this.jsonHeapDump.edges.slice(i, i + 3);
+        const edge: Edge = { type, nameOrIndexToStrings };
         const toNode = this.nodeMap.get(toNodeOriginalIndex)!;
         node.connectNextNode(toNode, edge);
         toNode.connectPrevNode(node);
       }
       currentEdgeIndex += node.getOriginalEdgeCount() * 3;
     }
-    console.log('reading edges - end. Read: ' + (currentEdgeIndex / 3) + ' edges.');
-    console.log('Building graph - end!')
+    console.log(
+      "reading edges - end. Read: " + currentEdgeIndex / 3 + " edges."
+    );
+    console.log(new Date().toISOString(), "Building graph - end!");
   }
 
   /** Exports the graph back to a json representation. */
@@ -57,9 +64,10 @@ export class GraphManager {
       this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields);
     }
     for (const heapNode of sortedNodes) {
-      for (const {node, edge} of heapNode.getNextNodesAndEdges()) {
-        if (typeof edge.nameOrIndexToStrings === 'number') {
-          const edgeName = this.jsonHeapDump.strings[edge.nameOrIndexToStrings as number];
+      for (const { node, edge } of heapNode.getNextNodesAndEdges()) {
+        if (typeof edge.nameOrIndexToStrings === "number") {
+          const edgeName =
+            this.jsonHeapDump.strings[edge.nameOrIndexToStrings as number];
           if (!stringsWithIndex.has(edgeName)) {
             allStrings.push(edgeName);
             stringsWithIndex.set(edgeName, allStrings.length - 1);
@@ -67,9 +75,12 @@ export class GraphManager {
           edge.nameOrIndexToStrings = stringsWithIndex.get(edgeName)!;
         }
 
-
         // TODO: casting to number even though it may be a string
-        this.jsonHeapDump.edges.push(edge.type, edge.nameOrIndexToStrings as number, nodeIndices.get(node)!);
+        this.jsonHeapDump.edges.push(
+          edge.type,
+          edge.nameOrIndexToStrings as number,
+          nodeIndices.get(node)!
+        );
       }
     }
 
@@ -89,57 +100,69 @@ export class GraphManager {
     this.jsonHeapDump.strings = allStrings;
     this.jsonHeapDump.snapshot.node_count = this.nodeMap.size;
     this.jsonHeapDump.snapshot.edge_count = this.jsonHeapDump.edges.length / 3;
-    console.log(`exporting graph. Total nodes: ${this.jsonHeapDump.snapshot.node_count}, total edges: ${this.jsonHeapDump.snapshot.edge_count}`);
+    console.log(
+      `exporting graph. Total nodes: ${this.jsonHeapDump.snapshot.node_count}, total edges: ${this.jsonHeapDump.snapshot.edge_count}`
+    );
     return JSON.stringify(this.jsonHeapDump);
   }
 
   /** Reduces the graph to focus on retainers for a specific node. */
   focusOnNode(nodeId: number, trueRootId: number) {
-    console.log('Focus on node - start!');
-    console.log('Finding nodes...');
-    const [nodeToFocus, rootNode] = [this.findNodeByNodeId(nodeId), this.findNodeByNodeId(trueRootId)];
-    console.log('Disconnecting the root from the previous nodes...');
+    console.log(new Date().toISOString(), `Focus on node ${nodeId} - start!`);
+    console.log("Finding nodes...");
+    const [nodeToFocus, rootNode] = [
+      this.findNodeByNodeId(nodeId),
+      this.findNodeByNodeId(trueRootId),
+    ];
+    console.log("Disconnecting the root from the previous nodes...");
     rootNode.disconnectPrevNodes();
 
     // Optimization (need to verify if correct) - feedback cells can be ignored when exploring memory leaks.
-    console.log('Removing feedback cells...');
-    this.disconnectEdgesWithName('feedback_cell');
+    console.log("Removing feedback cells...");
+    this.disconnectEdgesWithName("feedback_cell");
 
-//    console.log('Removing weak links...');
-    this.disconnectEdgesWithType('weak');
-    this.disconnectNodesWithName('WeakMap');
+    //    console.log('Removing weak links...');
+    this.disconnectEdgesWithType("weak");
+    this.disconnectNodesWithName("WeakMap");
+    this.disconnectNodesWithName("system / StackTraceFrame");
 
-    console.log('Removing all nodes that are not retainers of node to focus...');
+    console.log(
+      "Removing all nodes that are not retainers of node to focus..."
+    );
     // Cleanup some of the data structure by removing non-retainer nodes.
     this.deleteNonRetainerNodes(nodeToFocus, rootNode);
 
-    console.log('Disconnecting the node to focus from its next nodes...');
+    console.log("Disconnecting the node to focus from its next nodes...");
     // disconnect the next layer of nodes and then remove all the nodes that
     // are not children of the root node.
     nodeToFocus.disconnectNextNodes();
 
-    console.log('Removing all nodes that are not referenced by the root node...');
+    console.log(
+      "Removing all nodes that are not referenced by the root node..."
+    );
     const allRootChildren = this.getAllChildren(rootNode);
     allRootChildren.add(rootNode);
     if (!allRootChildren.has(nodeToFocus)) {
-      throw new Error('Node to focus needs to be a child of the root node after the non retainer deletion.');
+      throw new Error(
+        "Node to focus needs to be a child of the root node after the non retainer deletion."
+      );
     }
     this.deleteOtherNodes(allRootChildren);
     this.deleteNonRetainerNodes(nodeToFocus, rootNode);
 
     this.removeCycles(rootNode, nodeToFocus);
 
-    console.log('Cleanup...');
+    console.log("Cleanup...");
     // cleanup the graph
     this.deleteNonRetainerNodes(nodeToFocus, rootNode);
     this.removeAllIsolatedNodes();
-    console.log('Focus on node - end!');
+    console.log(new Date().toISOString(), "Focus on node - end!");
   }
 
   private deleteNonRetainerNodes(nodeToFocus: HeapNode, rootNode: HeapNode) {
     const retainerNodes = this.collectRetainers(nodeToFocus);
     if (!retainerNodes.has(rootNode)) {
-      throw new Error('Root node is not a retainer of the node to focus');
+      throw new Error("Root node is not a retainer of the node to focus");
     }
     this.deleteOtherNodes(retainerNodes);
   }
@@ -156,7 +179,7 @@ export class GraphManager {
   private deleteNode(indexInNodeMap) {
     const node = this.nodeMap.get(indexInNodeMap);
     if (!node) {
-      throw new Error('Cannot find node to delete. Index: ' + indexInNodeMap);
+      throw new Error("Cannot find node to delete. Index: " + indexInNodeMap);
     }
     node.disconnectNextNodes();
     node.disconnectPrevNodes();
@@ -182,16 +205,19 @@ export class GraphManager {
   }
 
   private findNodeByNodeId(nodeId: number) {
-    const node = [...this.nodeMap.values()].find((node) => node.getNodeId() === nodeId);
+    const node = [...this.nodeMap.values()].find(
+      (node) => node.getNodeId() === nodeId
+    );
     if (!node) {
-      throw new Error('Cannot find node with id: ' + nodeId);
+      throw new Error("Cannot find node with id: " + nodeId);
     }
     return node;
   }
 
   private getSortedNodes(): HeapNode[] {
-    return [...this.nodeMap.values()]
-        .sort((a, b) => a.originalIndex - b.originalIndex);
+    return [...this.nodeMap.values()].sort(
+      (a, b) => a.originalIndex - b.originalIndex
+    );
   }
 
   private removeAllIsolatedNodes() {
@@ -229,22 +255,26 @@ export class GraphManager {
   }
 
   private removeCycles(rootNode: HeapNode, nodeToFocus: HeapNode) {
-    console.log('removing cycles in the graph....');
+    console.log("removing cycles in the graph....");
     const visited = new Set<HeapNode>();
     visited.add(rootNode);
 
     let nexts = rootNode.getNextNodes();
     let layer = 0;
     while (nexts.length) {
-      console.log(`removing cycles - layer: ${layer}. Layer size: ${nexts.length}.`);
+      console.log(
+        `removing cycles - layer: ${layer}. Layer size: ${nexts.length}.`
+      );
       const nextLayer: HeapNode[] = [];
       for (const next of nexts) {
         if (!visited.has(next)) {
-          for (const prevNode of next.getPrevNodes().filter(prev => !visited.has(prev))) {
+          for (const prevNode of next
+            .getPrevNodes()
+            .filter((prev) => !visited.has(prev))) {
             next.disconnectPrevNode(prevNode);
           }
         }
-        nextLayer.push(...next.getNextNodes().filter(n => !visited.has(n)));
+        nextLayer.push(...next.getNextNodes().filter((n) => !visited.has(n)));
       }
       for (const visitedNode of nexts) {
         visited.add(visitedNode);
@@ -259,7 +289,11 @@ export class GraphManager {
     for (const node of this.nodeMap.values()) {
       for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
         for (const edgeNameToDelete of edgeNamesToDisconnect) {
-          if (this.jsonHeapDump.strings[nextEdgeAndNode.edge.nameOrIndexToStrings] === edgeNameToDelete) {
+          if (
+            this.jsonHeapDump.strings[
+              nextEdgeAndNode.edge.nameOrIndexToStrings
+            ] === edgeNameToDelete
+          ) {
             node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge);
           }
         }
@@ -271,7 +305,11 @@ export class GraphManager {
     for (const node of this.nodeMap.values()) {
       for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
         for (const edgeTypeToDelete of edgeTypesToDisconnect) {
-          if (this.jsonHeapDump.snapshot.meta.edge_types[0][nextEdgeAndNode.edge.type] === edgeTypeToDelete) {
+          if (
+            this.jsonHeapDump.snapshot.meta.edge_types[0][
+              nextEdgeAndNode.edge.type
+            ] === edgeTypeToDelete
+          ) {
             node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge);
           }
         }
@@ -282,7 +320,10 @@ export class GraphManager {
   private disconnectNodesWithName(...nodeNamesToDisconnect: string[]) {
     for (const node of this.nodeMap.values()) {
       for (const nodeNameToDelete of nodeNamesToDisconnect) {
-        if (this.jsonHeapDump.strings[node.getNodeNameIndex()] === nodeNameToDelete) {
+        if (
+          this.jsonHeapDump.strings[node.getNodeNameIndex()] ===
+          nodeNameToDelete
+        ) {
           node.disconnectNextNodes();
           node.disconnectPrevNodes();
         }
@@ -296,17 +337,22 @@ export class GraphManager {
         return node;
       }
     }
-    throw new Error('Cannot find node with name: ' + name)
-
+    throw new Error("Cannot find node with name: " + name);
   }
 
   private deleteAllDetachedNodes(nodeToExclude: HeapNode) {
-    console.log('Removing all nodes with name starts with Detached (except the node to focus)...');
+    console.log(
+      "Removing all nodes with name starts with Detached (except the node to focus)..."
+    );
     for (const [nodeIndex, node] of this.nodeMap.entries()) {
       if (node === nodeToExclude) {
         continue;
       }
-      if (this.jsonHeapDump.strings[node.getNodeNameIndex()].startsWith('Detached ')) {
+      if (
+        this.jsonHeapDump.strings[node.getNodeNameIndex()].startsWith(
+          "Detached "
+        )
+      ) {
         this.deleteNode(nodeIndex);
       }
     }
