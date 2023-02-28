@@ -30,8 +30,8 @@ const run = async (filePath: string, nodeId: string | undefined) => {
   const graphManager = new GraphManager(jsonData);
   const nodeIdToFocus =
     nodeId === undefined
-      ? graphManager.findNodeByName("Detached Window").getNodeId()
-      : parseInt(nodeId);
+      ? (console.log('Looking for detached window'), graphManager.findNodeByName("Detached Window").getNodeId())
+      : (console.log('Focusing on node', nodeId), parseInt(nodeId));
   graphManager.focusOnNode(
     nodeIdToFocus,
     graphManager.findNodeByName("(GC roots)").getNodeId()

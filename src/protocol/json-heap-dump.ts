@@ -22,4 +22,3 @@ export interface JsonHeapDump {
     locations: number[],
     strings: string[],
 }
-

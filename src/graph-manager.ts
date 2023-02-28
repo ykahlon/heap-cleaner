@@ -6,17 +6,27 @@ import { Edge, HeapNode } from "./protocol/heap-node";
 // TODO: check what's the meaning of 'name_or_index' in edge
 export class GraphManager {
   private nodeMap = new Map<number, HeapNode>();
+  private nodeFieldCount: number;
+  private edgeFieldCount: number;
 
   constructor(private readonly jsonHeapDump: JsonHeapDump) {
+    const {
+      meta: { node_fields, edge_fields },
+    } = this.jsonHeapDump.snapshot;
+    this.nodeFieldCount = node_fields.length;
+    this.edgeFieldCount = edge_fields.length;
     this.constructGraph();
   }
 
   /** Constructs the heap snapshot graph from the json object. */
-  constructGraph() {
+  private constructGraph() {
     console.log(new Date().toISOString(), "Building graph - start!");
     console.log("reading nodes - start!");
-    for (let i = 0; i < this.jsonHeapDump.nodes.length; i += 6) {
-      let heapNode = new HeapNode(this.jsonHeapDump.nodes.slice(i, i + 6), i);
+    for (let i = 0; i < this.jsonHeapDump.nodes.length; i += this.nodeFieldCount) {
+      let heapNode = new HeapNode(
+        this.jsonHeapDump.nodes.slice(i, i + this.nodeFieldCount),
+        i
+      );
       this.nodeMap.set(i, heapNode);
     }
     console.log("reading nodes - end. Read: " + this.nodeMap.size + " nodes.");
@@ -25,26 +35,29 @@ export class GraphManager {
     for (const node of this.getSortedNodes()) {
       for (
         let i = currentEdgeIndex;
-        i < currentEdgeIndex + node.getOriginalEdgeCount() * 3;
-        i += 3
+        i <
+        currentEdgeIndex + node.getOriginalEdgeCount() * this.edgeFieldCount;
+        i += this.edgeFieldCount
       ) {
         const [type, nameOrIndexToStrings, toNodeOriginalIndex] =
-          this.jsonHeapDump.edges.slice(i, i + 3);
+          this.jsonHeapDump.edges.slice(i, i + this.edgeFieldCount);
         const edge: Edge = { type, nameOrIndexToStrings };
         const toNode = this.nodeMap.get(toNodeOriginalIndex)!;
         node.connectNextNode(toNode, edge);
         toNode.connectPrevNode(node);
       }
-      currentEdgeIndex += node.getOriginalEdgeCount() * 3;
+      currentEdgeIndex += node.getOriginalEdgeCount() * this.edgeFieldCount;
     }
     console.log(
-      "reading edges - end. Read: " + currentEdgeIndex / 3 + " edges."
+      "reading edges - end. Read: " +
+        currentEdgeIndex / this.edgeFieldCount +
+        " edges."
     );
     console.log(new Date().toISOString(), "Building graph - end!");
   }
 
   /** Exports the graph back to a json representation. */
-  exportGraphToJson(): string {
+  public exportGraphToJson(): string {
     const sortedNodes = this.getSortedNodes();
     this.jsonHeapDump.nodes = [];
     this.jsonHeapDump.edges = [];
@@ -99,7 +112,8 @@ export class GraphManager {
     // }
     this.jsonHeapDump.strings = allStrings;
     this.jsonHeapDump.snapshot.node_count = this.nodeMap.size;
-    this.jsonHeapDump.snapshot.edge_count = this.jsonHeapDump.edges.length / 3;
+    this.jsonHeapDump.snapshot.edge_count =
+      this.jsonHeapDump.edges.length / this.edgeFieldCount;
     console.log(
       `exporting graph. Total nodes: ${this.jsonHeapDump.snapshot.node_count}, total edges: ${this.jsonHeapDump.snapshot.edge_count}`
     );
@@ -107,7 +121,7 @@ export class GraphManager {
   }
 
   /** Reduces the graph to focus on retainers for a specific node. */
-  focusOnNode(nodeId: number, trueRootId: number) {
+  public focusOnNode(nodeId: number, trueRootId: number) {
     console.log(new Date().toISOString(), `Focus on node ${nodeId} - start!`);
     console.log("Finding nodes...");
     const [nodeToFocus, rootNode] = [
@@ -330,7 +344,8 @@ export class GraphManager {
       }
     }
   }
-  findNodeByName(name: string): HeapNode {
+
+  public findNodeByName(name: string): HeapNode {
     for (const [nodeIndex, node] of this.nodeMap.entries()) {
       const nodeName = this.jsonHeapDump.strings[node.getNodeNameIndex()];
       if (nodeName === name) {
