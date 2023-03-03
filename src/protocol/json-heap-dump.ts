@@ -3,9 +3,9 @@ export interface JsonHeapDump {
     snapshot: {
         meta: {
             "node_fields": string[], // ["type", "name", "id", "self_size", "edge_count", "trace_node_id"],
-            "node_types": Array<string[] | string>, // ["hidden", "array", "string", "object", "code", "closure", "regexp", "number", "native", "synthetic", "concatenated string", "sliced string", "symbol", "bigint"],
+            "node_types": string[][], // ["hidden", "array", "string", "object", "code", "closure", "regexp", "number", "native", "synthetic", "concatenated string", "sliced string", "symbol", "bigint"],
             "edge_fields": string[], // [ "type", "name_or_index", "to_node" ],
-            "edge_types": string[], // ["context", "element", "property", "internal", "hidden", "shortcut", "weak"]
+            "edge_types": string[][], // ["context", "element", "property", "internal", "hidden", "shortcut", "weak"]
             "trace_function_info_fields": string[],
             "trace_node_fields": string[],
             "sample_fields": string[],
@@ -16,8 +16,8 @@ export interface JsonHeapDump {
     }
     nodes: number[],
     edges: number[],
-    trace_function_infos: string[],
-    trace_tree: string[],
+    trace_function_infos?: string[],
+    trace_tree?: string[],
     samples: string[],
     locations: number[],
     strings: string[],
