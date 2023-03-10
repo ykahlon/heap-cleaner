@@ -3,6 +3,6 @@
 // found in the LICENSE file.
 
 export function serializeUIString(string: string, values: Record<string, Object> = {}): string {
-  const serializedMessage = {string, values};
-  return JSON.stringify(serializedMessage);
+  const serializedMessage = { string, values }
+  return JSON.stringify(serializedMessage)
 }

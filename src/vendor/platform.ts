@@ -28,10 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import * as ArrayUtilities from './array-utilities';
-import * as StringUtilities from './string-utilities';
+import * as ArrayUtilities from './array-utilities'
+import * as StringUtilities from './string-utilities'
 
-export {
-  ArrayUtilities,
-  StringUtilities,
-};
+export { ArrayUtilities, StringUtilities }

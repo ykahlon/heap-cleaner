@@ -28,96 +28,103 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import type * as HeapSnapshotModel from "./HeapSnapshotModel";
+import { Worker } from 'worker_threads'
+import type * as HeapSnapshotModel from './HeapSnapshotModel'
+
 interface DispatcherResponse {
-  callId?: number;
+  callId?: number
   // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result: any;
-  error?: string;
-  errorCallStack?: Object;
-  errorMethodName?: string;
+  result: any
+  error?: string
+  errorCallStack?: Object
+  errorMethodName?: string
 }
 export class HeapSnapshotWorkerDispatcher {
   // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  #objects: any[];
-  readonly #global: Worker;
-  readonly #postMessage: Function;
+  #objects: any[]
+  readonly #global: Worker
+  readonly #postMessage: Function
   constructor(globalObject: Worker, postMessage: Function) {
-    this.#objects = [];
-    this.#global = globalObject;
-    this.#postMessage = postMessage;
+    this.#objects = []
+    this.#global = globalObject
+    this.#postMessage = postMessage
   }
 
   #findFunction(name: string): Function {
-    const path = name.split('.');
+    const path = name.split('.')
     // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let result = (this.#global as any);
+    let result = this.#global as any
     for (let i = 0; i < path.length; ++i) {
-      result = result[path[i]];
+      result = result[path[i]]
     }
-    return result as Function;
+    return result as Function
   }
 
   // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sendEvent(name: string, data: any): void {
-    this.#postMessage({eventName: name, data: data});
+    this.#postMessage({ eventName: name, data: data })
   }
 
-  dispatchMessage({data}: {data: HeapSnapshotModel.WorkerCommand}): void {
-    const response: DispatcherResponse =
-        {callId: data.callId, result: null, error: undefined, errorCallStack: undefined, errorMethodName: undefined};
+  dispatchMessage({ data }: { data: HeapSnapshotModel.WorkerCommand }): void {
+    const response: DispatcherResponse = {
+      callId: data.callId,
+      result: null,
+      error: undefined,
+      errorCallStack: undefined,
+      errorMethodName: undefined,
+    }
     try {
       switch (data.disposition) {
         case 'create': {
-          const constructorFunction = this.#findFunction(data.methodName);
+          const constructorFunction = this.#findFunction(data.methodName)
           // @ts-ignore
-          this.#objects[data.objectId] = new constructorFunction(this);
-          break;
+          this.#objects[data.objectId] = new constructorFunction(this)
+          break
         }
         case 'dispose': {
-          delete this.#objects[data.objectId];
-          break;
+          delete this.#objects[data.objectId]
+          break
         }
         case 'getter': {
-          const object = this.#objects[data.objectId];
-          const result = object[data.methodName];
-          response.result = result;
-          break;
+          const object = this.#objects[data.objectId]
+          const result = object[data.methodName]
+          response.result = result
+          break
         }
         case 'factory': {
-          const object = this.#objects[data.objectId];
-          const result = object[data.methodName].apply(object, data.methodArguments);
+          const object = this.#objects[data.objectId]
+          const result = object[data.methodName].apply(object, data.methodArguments)
           if (result) {
-            this.#objects[data.newObjectId] = result;
+            this.#objects[data.newObjectId] = result
           }
-          response.result = Boolean(result);
-          break;
+          response.result = Boolean(result)
+          break
         }
         case 'method': {
-          const object = this.#objects[data.objectId];
-          response.result = object[data.methodName].apply(object, data.methodArguments);
-          break;
+          const object = this.#objects[data.objectId]
+          response.result = object[data.methodName].apply(object, data.methodArguments)
+          break
         }
         case 'evaluateForTest': {
           try {
-            response.result = self.eval(data.source);
+            response.result = eval(data.source)
           } catch (error) {
-            response.result = error.toString();
+            response.result = (error as Error).toString()
           }
-          break;
+          break
         }
       }
     } catch (error) {
-      response.error = error.toString();
-      response.errorCallStack = error.stack;
+      response.error = (error as Error).toString()
+      response.errorCallStack = (error as Error).stack
       if (data.methodName) {
-        response.errorMethodName = data.methodName;
+        response.errorMethodName = data.methodName
       }
     }
-    this.#postMessage(response);
+    this.#postMessage(response)
   }
 }

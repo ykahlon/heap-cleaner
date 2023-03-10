@@ -3,10 +3,7 @@
     "outDir": "dist/esm",
     "module": "es2020",
     "target": "es2015",
-    "lib": [
-      "es2017",
-      "dom"
-    ],
+    "lib": ["es2021"],
     "moduleResolution": "node",
     "allowJs": false,
     "sourceMap": true,
@@ -19,11 +16,6 @@
     "noImplicitThis": true,
     "noImplicitAny": true
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }
