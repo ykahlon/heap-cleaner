@@ -609,7 +609,7 @@ export abstract class HeapSnapshot {
   nodeNameOffset!: number;
   nodeIdOffset!: number;
   nodeSelfSizeOffset!: number;
-  #nodeEdgeCountOffset!: number;
+  nodeEdgeCountOffset!: number;
   nodeTraceNodeIdOffset!: number;
   nodeFieldCount!: number;
   nodeTypes!: string[];
@@ -690,7 +690,7 @@ export abstract class HeapSnapshot {
     this.nodeNameOffset = meta.node_fields.indexOf('name');
     this.nodeIdOffset = meta.node_fields.indexOf('id');
     this.nodeSelfSizeOffset = meta.node_fields.indexOf('self_size');
-    this.#nodeEdgeCountOffset = meta.node_fields.indexOf('edge_count');
+    this.nodeEdgeCountOffset = meta.node_fields.indexOf('edge_count');
     this.nodeTraceNodeIdOffset = meta.node_fields.indexOf('trace_node_id');
     this.#nodeDetachednessOffset = meta.node_fields.indexOf('detachedness');
     this.nodeFieldCount = meta.node_fields.length;
@@ -799,7 +799,7 @@ export abstract class HeapSnapshot {
     const firstEdgeIndexes = this.firstEdgeIndexes;
     const nodeFieldCount = this.nodeFieldCount;
     const edgeFieldsCount = this.edgeFieldsCount;
-    const nodeEdgeCountOffset = this.#nodeEdgeCountOffset;
+    const nodeEdgeCountOffset = this.nodeEdgeCountOffset;
     firstEdgeIndexes[nodeCount] = this.containmentEdges.length;
     for (let nodeOrdinal = 0, edgeIndex = 0; nodeOrdinal < nodeCount; ++nodeOrdinal) {
       firstEdgeIndexes[nodeOrdinal] = edgeIndex;

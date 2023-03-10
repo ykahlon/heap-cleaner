@@ -1,7 +1,8 @@
 import { JsonHeapDump } from "./protocol/json-heap-dump";
-import { Edge, HeapNode } from "./protocol/heap-node";
+import { HeapNode } from "./protocol/heap-node";
 import { JSHeapSnapshot } from "./vendor/HeapSnapshot";
 import { log } from "./log";
+import { HeapEdge } from "./protocol/heap-edge";
 
 // TODO: consider parsing node/edge types (hardcoded right now)
 // TODO: check if need to modify functions, trace, samples etc
@@ -9,12 +10,24 @@ import { log } from "./log";
 export class GraphManager {
   private jsonHeapDump: JsonHeapDump;
   private nodeMap = new Map<number, HeapNode>();
-  private nodeFieldCount: number;
-  private edgeFieldCount: number;
+  public readonly nodeFieldCount: number;
+  public readonly edgeFieldCount: number;
+  public readonly nodeNameOffset: number;
+  public readonly nodeIdOffset: number;
+  public readonly nodeEdgeCountOffset: number;
+  public readonly edgeTypeOffset: number;
+  public readonly edgeNameOffset: number;
+  public readonly edgeToNodeOffset: number;
 
   constructor(snapshot: JSHeapSnapshot) {
     this.nodeFieldCount = snapshot.nodeFieldCount;
     this.edgeFieldCount = snapshot.edgeFieldsCount;
+    this.nodeNameOffset = snapshot.nodeNameOffset;
+    this.nodeIdOffset = snapshot.nodeIdOffset;
+    this.nodeEdgeCountOffset = snapshot.nodeEdgeCountOffset;
+    this.edgeTypeOffset = snapshot.edgeTypeOffset;
+    this.edgeNameOffset = snapshot.edgeNameOffset;
+    this.edgeToNodeOffset = snapshot.edgeToNodeOffset;
     this.constructGraph(snapshot);
   }
 
@@ -32,6 +45,7 @@ export class GraphManager {
     log("reading nodes - start!");
     for (let i = 0; i < snapshot.nodes.length; i += this.nodeFieldCount) {
       let heapNode = new HeapNode(
+        this,
         Array.from(snapshot.nodes.slice(i, i + this.nodeFieldCount)),
         i
       );
@@ -43,12 +57,17 @@ export class GraphManager {
     for (const node of this.getSortedNodes()) {
       for (
         let i = currentEdgeIndex;
-        i < currentEdgeIndex + node.getOriginalEdgeCount() * this.edgeFieldCount;
+        i <
+        currentEdgeIndex + node.getOriginalEdgeCount() * this.edgeFieldCount;
         i += this.edgeFieldCount
       ) {
-        const [type, nameOrIndexToStrings, toNodeOriginalIndex] = snapshot.containmentEdges.slice(i, i + this.edgeFieldCount);
-        const edge: Edge = { type, nameOrIndexToStrings };
-        const toNode = this.nodeMap.get(toNodeOriginalIndex)!;
+        let edge = new HeapEdge(
+          this,
+          Array.from(
+            snapshot.containmentEdges.slice(i, i + this.edgeFieldCount)
+          )
+        );
+        const toNode = this.nodeMap.get(edge.getOriginalToNode())!;
         node.connectNextNode(toNode, edge);
         toNode.connectPrevNode(node);
       }
@@ -77,29 +96,23 @@ export class GraphManager {
         allStrings.push(nodeName);
         stringsWithIndex.set(nodeName, allStrings.length - 1);
       }
-      heapNode.originalNodeFields[1] = stringsWithIndex.get(nodeName)!;
-      heapNode.originalNodeFields[4] = heapNode.getEdgeCount();
+      heapNode.originalNodeFields[this.nodeNameOffset] =
+        stringsWithIndex.get(nodeName)!;
+      heapNode.originalNodeFields[this.nodeEdgeCountOffset] =
+        heapNode.getEdgeCount();
       nodeIndices.set(heapNode, this.jsonHeapDump.nodes.length);
       this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields);
     }
     for (const heapNode of sortedNodes) {
       for (const { node, edge } of heapNode.getNextNodesAndEdges()) {
-        if (typeof edge.nameOrIndexToStrings === "number") {
-          const edgeName =
-            this.jsonHeapDump.strings[edge.nameOrIndexToStrings as number];
-          if (!stringsWithIndex.has(edgeName)) {
-            allStrings.push(edgeName);
-            stringsWithIndex.set(edgeName, allStrings.length - 1);
-          }
-          edge.nameOrIndexToStrings = stringsWithIndex.get(edgeName)!;
+        const edgeName = this.jsonHeapDump.strings[edge.getEdgeNameIndex()];
+        if (!stringsWithIndex.has(edgeName)) {
+          allStrings.push(edgeName);
+          stringsWithIndex.set(edgeName, allStrings.length - 1);
         }
-
-        // TODO: casting to number even though it may be a string
-        this.jsonHeapDump.edges.push(
-          edge.type,
-          edge.nameOrIndexToStrings as number,
-          nodeIndices.get(node)!
-        );
+        edge.originalEdgeFields[this.edgeNameOffset] = stringsWithIndex.get(edgeName)!;
+        edge.originalEdgeFields[this.edgeToNodeOffset] = nodeIndices.get(node)!;
+        this.jsonHeapDump.edges.push(...edge.originalEdgeFields);
       }
     }
 
@@ -305,7 +318,7 @@ export class GraphManager {
         for (const edgeNameToDelete of edgeNamesToDisconnect) {
           if (
             this.jsonHeapDump.strings[
-              nextEdgeAndNode.edge.nameOrIndexToStrings
+              nextEdgeAndNode.edge.getEdgeNameIndex()
             ] === edgeNameToDelete
           ) {
             node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge);
@@ -321,7 +334,7 @@ export class GraphManager {
         for (const edgeTypeToDelete of edgeTypesToDisconnect) {
           if (
             this.jsonHeapDump.snapshot.meta.edge_types[0][
-              nextEdgeAndNode.edge.type
+              nextEdgeAndNode.edge.getEdgeType()
             ] === edgeTypeToDelete
           ) {
             node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge);
