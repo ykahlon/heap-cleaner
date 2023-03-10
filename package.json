@@ -2,7 +2,7 @@
   "name": "heap-cleaner",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "bin": "./dist/cjs/cleaner.js",
   "scripts": {
     "start": "node --require ts-node/register --max-old-space-size=8192 --stack-size=160000000 src/cleaner.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
