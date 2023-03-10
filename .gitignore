@@ -1,4 +1,5 @@
-node_modules
-output.heapsnapshot
+node_modules/
+dist/
+*.heapsnapshot
 .idea
-ignore
+.vscode

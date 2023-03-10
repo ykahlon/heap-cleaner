@@ -1,10 +1,29 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "es2021",
-    "sourceMap": true
+    "outDir": "dist/esm",
+    "module": "es2020",
+    "target": "es2015",
+    "lib": [
+      "es2017",
+      "dom"
+    ],
+    "moduleResolution": "node",
+    "allowJs": false,
+    "sourceMap": true,
+    "declaration": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noImplicitAny": true
   },
+  "include": [
+    "src"
+  ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist"
   ]
 }
