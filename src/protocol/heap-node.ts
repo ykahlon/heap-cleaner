@@ -9,7 +9,8 @@ export class HeapNode {
   constructor(
     private readonly graphManager: GraphManager,
     public readonly originalNodeFields: number[],
-    public readonly originalIndex: number
+    public readonly originalIndex: number,
+    public readonly indexInNodeMap: number
   ) {}
 
   connectPrevNode(node: HeapNode) {

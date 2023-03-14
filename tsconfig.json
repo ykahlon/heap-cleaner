@@ -1,13 +1,13 @@
 {
   "compilerOptions": {
-    "outDir": "dist/esm",
-    "module": "es2020",
-    "target": "es2015",
+    "module": "commonjs",
+    "outDir": "dist",
+    "target": "es2021",
     "lib": ["es2021"],
     "moduleResolution": "node",
     "allowJs": false,
-    "sourceMap": true,
-    "declaration": true,
+    "sourceMap": false,
+    "declaration": false,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "noUnusedLocals": true,

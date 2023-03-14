@@ -1,5 +1,6 @@
-import { GraphManager } from './graph-manager'
 import { promises as fs, createReadStream } from 'fs'
+import { extname } from 'path'
+import { GraphManager } from './graph-manager'
 import { type HeapSnapshotWorkerDispatcher } from './vendor/HeapSnapshotWorkerDispatcher'
 import { HeapSnapshotLoader } from './vendor/HeapSnapshotLoader'
 import { log, error } from './log'
@@ -41,8 +42,10 @@ const run = async (filePath: string, nodeId: string | undefined) => {
       : (log('Focusing on node', nodeId), parseInt(nodeId))
   graphManager.focusOnNode(nodeIdToFocus, graphManager.findNodeByName('(GC roots)').getNodeId())
   const jsonOutput = graphManager.exportGraphToJson()
-  await fs.writeFile('./output.heapsnapshot', JSON.stringify(jsonOutput), { encoding: 'utf-8' })
-  log('See output in output.heapsnapshot')
+
+  const output = `${filePath.substring(0, filePath.length - extname(filePath).length)}-${nodeIdToFocus}.heapsnapshot`
+  await fs.writeFile(output, JSON.stringify(jsonOutput), { encoding: 'utf-8' })
+  log(`See output in ${output}`)
 }
 
 const appParams = process.argv.slice(2)

@@ -9,7 +9,7 @@ import { HeapEdge } from './protocol/heap-edge'
 // TODO: check what's the meaning of 'name_or_index' in edge
 export class GraphManager {
   private jsonHeapDump: JsonHeapDump
-  private nodeMap = new Map<number, HeapNode>()
+  private nodeMap: Record<number, HeapNode> = {} // https://stackoverflow.com/a/54466812
   public readonly nodeFieldCount: number
   public readonly edgeFieldCount: number
   public readonly nodeNameOffset: number
@@ -44,21 +44,25 @@ export class GraphManager {
   private constructGraph(snapshot: JSHeapSnapshot) {
     log('Building graph - start!')
     log('reading nodes - start!')
-    for (let i = 0; i < snapshot.nodes.length; i += this.nodeFieldCount) {
-      let heapNode = new HeapNode(this, Array.from(snapshot.nodes.slice(i, i + this.nodeFieldCount)), i)
-      this.nodeMap.set(i, heapNode)
+    const length = snapshot.nodes.length / this.nodeFieldCount
+    for (let i = 0; i < length; i += 1) {
+      const nodeIndex = i * this.nodeFieldCount
+      let heapNode = new HeapNode(
+        this,
+        Array.from(snapshot.nodes.slice(nodeIndex, nodeIndex + this.nodeFieldCount)),
+        nodeIndex,
+        i
+      )
+      this.nodeMap[i] = heapNode
     }
-    log('reading nodes - end. Read: ' + this.nodeMap.size + ' nodes.')
+    log('reading nodes - end. Read: ' + length + ' nodes.')
     log('reading edges - start!')
     let currentEdgeIndex = 0
     for (const node of this.getSortedNodes()) {
-      for (
-        let i = currentEdgeIndex;
-        i < currentEdgeIndex + node.getOriginalEdgeCount() * this.edgeFieldCount;
-        i += this.edgeFieldCount
-      ) {
+      const limit = currentEdgeIndex + node.getOriginalEdgeCount() * this.edgeFieldCount
+      for (let i = currentEdgeIndex; i < limit; i += this.edgeFieldCount) {
         let edge = new HeapEdge(this, Array.from(snapshot.containmentEdges.slice(i, i + this.edgeFieldCount)))
-        const toNode = this.nodeMap.get(edge.getOriginalToNode())!
+        const toNode = this.nodeMap[edge.getOriginalToNode() / this.nodeFieldCount]!
         node.connectNextNode(toNode, edge)
         toNode.connectPrevNode(node)
       }
@@ -74,29 +78,29 @@ export class GraphManager {
     this.jsonHeapDump.nodes = []
     this.jsonHeapDump.edges = []
     const allStrings: string[] = []
-    const stringsWithIndex = new Map<string, number>()
+    const stringsWithIndex: Record<string, number> = {}
 
-    const nodeIndices = new Map<HeapNode, number>()
+    const nodeIndices: Record<number, number> = {}
     for (const heapNode of sortedNodes) {
       const nodeName = this.jsonHeapDump.strings[heapNode.getNodeNameIndex()]
-      if (!stringsWithIndex.has(nodeName)) {
+      if (!stringsWithIndex[nodeName]) {
         allStrings.push(nodeName)
-        stringsWithIndex.set(nodeName, allStrings.length - 1)
+        stringsWithIndex[nodeName] = allStrings.length - 1
       }
-      heapNode.originalNodeFields[this.nodeNameOffset] = stringsWithIndex.get(nodeName)!
+      heapNode.originalNodeFields[this.nodeNameOffset] = stringsWithIndex[nodeName]!
       heapNode.originalNodeFields[this.nodeEdgeCountOffset] = heapNode.getEdgeCount()
-      nodeIndices.set(heapNode, this.jsonHeapDump.nodes.length)
+      nodeIndices[heapNode.originalIndex] = this.jsonHeapDump.nodes.length
       this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields)
     }
     for (const heapNode of sortedNodes) {
       for (const { node, edge } of heapNode.getNextNodesAndEdges()) {
         const edgeName = this.jsonHeapDump.strings[edge.getEdgeNameIndex()]
-        if (!stringsWithIndex.has(edgeName)) {
+        if (!stringsWithIndex[edgeName]) {
           allStrings.push(edgeName)
-          stringsWithIndex.set(edgeName, allStrings.length - 1)
+          stringsWithIndex[edgeName] = allStrings.length - 1
         }
-        edge.originalEdgeFields[this.edgeNameOffset] = stringsWithIndex.get(edgeName)!
-        edge.originalEdgeFields[this.edgeToNodeOffset] = nodeIndices.get(node)!
+        edge.originalEdgeFields[this.edgeNameOffset] = stringsWithIndex[edgeName]!
+        edge.originalEdgeFields[this.edgeToNodeOffset] = nodeIndices[node.originalIndex]!
         this.jsonHeapDump.edges.push(...edge.originalEdgeFields)
       }
     }
@@ -115,7 +119,7 @@ export class GraphManager {
     //   this.jsonHeapDump.locations.push(...location);
     // }
     this.jsonHeapDump.strings = allStrings
-    this.jsonHeapDump.snapshot.node_count = this.nodeMap.size
+    this.jsonHeapDump.snapshot.node_count = Object.keys(this.nodeMap).length
     this.jsonHeapDump.snapshot.edge_count = this.jsonHeapDump.edges.length / this.edgeFieldCount
     log(
       `exporting graph. Total nodes: ${this.jsonHeapDump.snapshot.node_count}, total edges: ${this.jsonHeapDump.snapshot.edge_count}`
@@ -177,21 +181,21 @@ export class GraphManager {
 
   private deleteOtherNodes(retainerNodes: Set<HeapNode>) {
     // Delete prev nodes not relevant to the node we focus on
-    for (const [index, node] of [...this.nodeMap.entries()]) {
+    for (const [indexInNodeMap, node] of Object.entries(this.nodeMap)) {
       if (!retainerNodes.has(node)) {
-        this.deleteNode(index)
+        this.deleteNode(Number(indexInNodeMap))
       }
     }
   }
 
   private deleteNode(indexInNodeMap: number) {
-    const node = this.nodeMap.get(indexInNodeMap)
+    const node = this.nodeMap[indexInNodeMap]
     if (!node) {
       throw new Error('Cannot find node to delete. Index: ' + indexInNodeMap)
     }
     node.disconnectNextNodes()
     node.disconnectPrevNodes()
-    this.nodeMap.delete(indexInNodeMap)
+    delete this.nodeMap[indexInNodeMap]
   }
 
   private collectRetainers(nodeToFocus: HeapNode): Set<HeapNode> {
@@ -213,7 +217,7 @@ export class GraphManager {
   }
 
   private findNodeByNodeId(nodeId: number) {
-    const node = [...this.nodeMap.values()].find((node) => node.getNodeId() === nodeId)
+    const node = Object.values(this.nodeMap).find((node) => node.getNodeId() === nodeId)
     if (!node) {
       throw new Error('Cannot find node with id: ' + nodeId)
     }
@@ -221,13 +225,13 @@ export class GraphManager {
   }
 
   private getSortedNodes(): HeapNode[] {
-    return [...this.nodeMap.values()].sort((a, b) => a.originalIndex - b.originalIndex)
+    return Object.values(this.nodeMap).sort((a, b) => a.originalIndex - b.originalIndex)
   }
 
   private removeAllIsolatedNodes() {
-    for (const [location, node] of [...this.nodeMap.entries()]) {
+    for (const [indexInNodeMap, node] of Object.entries(this.nodeMap)) {
       if (!node.getNextNodes().length && !node.getPrevNodes().length) {
-        this.nodeMap.delete(location)
+        delete this.nodeMap[Number(indexInNodeMap)]
       }
     }
   }
@@ -286,7 +290,7 @@ export class GraphManager {
   }
 
   private disconnectEdgesWithName(...edgeNamesToDisconnect: string[]) {
-    for (const node of this.nodeMap.values()) {
+    for (const node of Object.values(this.nodeMap)) {
       for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
         for (const edgeNameToDelete of edgeNamesToDisconnect) {
           if (this.jsonHeapDump.strings[nextEdgeAndNode.edge.getEdgeNameIndex()] === edgeNameToDelete) {
@@ -298,7 +302,7 @@ export class GraphManager {
   }
 
   private disconnectEdgesWithType(...edgeTypesToDisconnect: string[]) {
-    for (const node of this.nodeMap.values()) {
+    for (const node of Object.values(this.nodeMap)) {
       for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
         for (const edgeTypeToDelete of edgeTypesToDisconnect) {
           if (this.jsonHeapDump.snapshot.meta.edge_types[0][nextEdgeAndNode.edge.getEdgeType()] === edgeTypeToDelete) {
@@ -310,7 +314,7 @@ export class GraphManager {
   }
 
   private disconnectNodesWithName(...nodeNamesToDisconnect: string[]) {
-    for (const node of this.nodeMap.values()) {
+    for (const node of Object.values(this.nodeMap)) {
       for (const nodeNameToDelete of nodeNamesToDisconnect) {
         if (this.jsonHeapDump.strings[node.getNodeNameIndex()] === nodeNameToDelete) {
           node.disconnectNextNodes()
@@ -321,7 +325,7 @@ export class GraphManager {
   }
 
   public findNodeByName(name: string): HeapNode {
-    for (const node of this.nodeMap.values()) {
+    for (const node of Object.values(this.nodeMap)) {
       const nodeName = this.jsonHeapDump.strings[node.getNodeNameIndex()]
       if (nodeName === name) {
         return node
@@ -333,12 +337,12 @@ export class GraphManager {
   // @ts-ignore
   private deleteAllDetachedNodes(nodeToExclude: HeapNode) {
     log('Removing all nodes with name starts with Detached (except the node to focus)...')
-    for (const [nodeIndex, node] of this.nodeMap.entries()) {
+    for (const [indexInNodeMap, node] of Object.entries(this.nodeMap)) {
       if (node === nodeToExclude) {
         continue
       }
       if (this.jsonHeapDump.strings[node.getNodeNameIndex()].startsWith('Detached ')) {
-        this.deleteNode(nodeIndex)
+        this.deleteNode(Number(indexInNodeMap))
       }
     }
   }
