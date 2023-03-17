@@ -1,6 +1,6 @@
 {
   "name": "heap-cleaner",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "./dist/cjs/src/index-cjs.js",
   "module": "./dist/mjs/index.js",
