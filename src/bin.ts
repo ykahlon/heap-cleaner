@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { log, error } from './log'
 import { run } from './index'
 
