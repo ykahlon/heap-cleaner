@@ -2,14 +2,32 @@
   "name": "heap-cleaner",
   "version": "1.0.0",
   "description": "",
-  "bin": "./dist/cleaner.js",
+  "main": "./dist/cjs/src/index-cjs.js",
+  "module": "./dist/mjs/index.js",
+  "types": "./dist/mjs/index.d.ts",
+  "bin": "./dist/cjs/bin.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/mjs/index.d.ts",
+        "default": "./dist/mjs/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/src/index.d.ts",
+        "default": "./dist/cjs/src/index-cjs.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "start": "node --require ts-node/register --max-old-space-size=32768 --stack-size=320000000 src/cleaner.ts",
+    "start": "node --require ts-node/register --max-old-space-size=32768 --stack-size=320000000 src/bin.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx .",
     "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|jsx|ts|tsx|json)\"",
     "prebuild": "rimraf dist",
-    "build": "tsc"
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig-esm.json"
   },
   "devDependencies": {
     "@types/node": "18.15.0",
@@ -21,9 +39,9 @@
     "eslint-plugin-import": "2.27.5",
     "eslint-plugin-sonarjs": "0.18.0",
     "prettier": "2.8.4",
-    "rimraf": "^4.4.0",
-    "ts-node": "^10.9.1",
-    "typescript": "^4.7.4"
+    "rimraf": "4.4.0",
+    "ts-node": "10.9.1",
+    "typescript": "4.7.4"
   },
   "engines": {
     "node": ">=16"

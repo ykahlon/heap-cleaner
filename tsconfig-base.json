@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "moduleResolution": "node",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noImplicitAny": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2022"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

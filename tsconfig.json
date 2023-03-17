@@ -1,21 +1,7 @@
 {
+  "extends": "./tsconfig-base.json",
   "compilerOptions": {
     "module": "commonjs",
-    "outDir": "dist",
-    "target": "es2021",
-    "lib": ["es2021"],
-    "moduleResolution": "node",
-    "allowJs": false,
-    "sourceMap": false,
-    "declaration": false,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noImplicitThis": true,
-    "noImplicitAny": true
-  },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+    "outDir": "dist/cjs"
+  }
 }
