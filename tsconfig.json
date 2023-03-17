@@ -1,10 +1,7 @@
 {
+  "extends": "./tsconfig-base.json",
   "compilerOptions": {
     "module": "commonjs",
-    "target": "es2015",
-    "sourceMap": true
-  },
-  "exclude": [
-    "node_modules"
-  ]
+    "outDir": "dist/cjs"
+  }
 }
