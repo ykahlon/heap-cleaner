@@ -48,5 +48,14 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "contributors": [
+    "ykahlon",
+    "peledni",
+    "dolezel"
+  ],
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ykahlon/heap-cleaner.git"
+  }
 }
