@@ -32,12 +32,12 @@ export class GraphManager {
     this.edgeWeakType = snapshot.edgeWeakType
 
     this.jsonHeapDump = {
-      snapshot: snapshot.profile.snapshot,
+      snapshot: { ...snapshot.profile.snapshot },
       nodes: [],
       edges: [],
       samples: [],
       locations: [],
-      strings: snapshot.profile.strings,
+      strings: [...snapshot.profile.strings],
     }
     this.constructGraph(snapshot)
   }
