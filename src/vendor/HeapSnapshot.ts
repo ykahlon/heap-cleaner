@@ -867,7 +867,7 @@ export abstract class HeapSnapshot {
   abstract createEdge(_edgeIndex: number): JSHeapSnapshotEdge
   abstract createRetainingEdge(_retainerIndex: number): JSHeapSnapshotRetainerEdge
 
-  private allNodes(): HeapSnapshotNodeIterator {
+  public allNodes(): HeapSnapshotNodeIterator {
     return new HeapSnapshotNodeIterator(this.rootNode())
   }
 
