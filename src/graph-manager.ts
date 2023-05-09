@@ -269,8 +269,8 @@ export class GraphManager {
 
   private removeCycles(rootNode: HeapNode, nodeToFocus: HeapNode) {
     log('removing cycles in the graph....')
-    const visited: Record<number, unknown> = {}
-    visited[rootNode.originalIndex] = null
+    const visited: Record<number, true> = {}
+    visited[rootNode.originalIndex] = true
 
     let nexts = rootNode.getNextNodes()
     let layer = 0
@@ -286,7 +286,7 @@ export class GraphManager {
         nextLayer.push(...next.getNextNodes().filter((n) => !visited[n.originalIndex]))
       }
       for (const visitedNode of nexts) {
-        visited[visitedNode.originalIndex] = null
+        visited[visitedNode.originalIndex] = true
       }
       nexts = nextLayer
       layer++
