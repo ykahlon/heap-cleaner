@@ -82,7 +82,7 @@ export class GraphManager {
     this.jsonHeapDump.nodes = []
     this.jsonHeapDump.edges = []
     const allStrings: string[] = []
-    const stringsWithIndex: Map<string, number> = new Map
+    const stringsWithIndex: Map<string, number> = new Map()
 
     const nodeIndices: Record<number, number> = {}
     for (const heapNode of sortedNodes) {
