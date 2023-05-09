@@ -88,7 +88,7 @@ export const run = async (filePath: string, nodeIds: string[]) => {
       await fs.writeFile(output, JSON.stringify(jsonOutput), { encoding: 'utf-8' })
       log(`See output in ${output}`)
     } catch (err) {
-      error(`Focusing on node ${nodeId} failed: ${(err as Error).message}`)
+      error(`Focusing on node ${nodeId} failed: ${(err as Error).stack ?? (err as Error).message ?? err}`)
     }
   }
 }

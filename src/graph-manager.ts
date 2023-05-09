@@ -1,6 +1,6 @@
 import { JsonHeapDump } from './protocol/json-heap-dump'
 import { HeapNode } from './protocol/heap-node'
-import { JSHeapSnapshot } from './vendor/HeapSnapshot'
+import { JSHeapSnapshot, DOMLinkState } from './vendor/HeapSnapshot'
 import { log } from './log'
 import { HeapEdge } from './protocol/heap-edge'
 
@@ -19,6 +19,7 @@ export class GraphManager {
   public readonly edgeNameOffset: number
   public readonly edgeToNodeOffset: number
   private readonly edgeWeakType: number
+  private readonly nodeDetachednessOffset: number
 
   constructor(snapshot: JSHeapSnapshot) {
     this.nodeFieldCount = snapshot.nodeFieldCount
@@ -30,6 +31,7 @@ export class GraphManager {
     this.edgeNameOffset = snapshot.edgeNameOffset
     this.edgeToNodeOffset = snapshot.edgeToNodeOffset
     this.edgeWeakType = snapshot.edgeWeakType
+    this.nodeDetachednessOffset = snapshot.nodeDetachednessOffset
 
     this.jsonHeapDump = {
       snapshot: { ...snapshot.profile.snapshot },
@@ -80,28 +82,29 @@ export class GraphManager {
     this.jsonHeapDump.nodes = []
     this.jsonHeapDump.edges = []
     const allStrings: string[] = []
-    const stringsWithIndex: Record<string, number> = {}
+    const stringsWithIndex: Map<string, number> = new Map
 
     const nodeIndices: Record<number, number> = {}
     for (const heapNode of sortedNodes) {
       const nodeName = this.jsonHeapDump.strings[heapNode.getNodeNameIndex()]
-      if (!stringsWithIndex[nodeName]) {
+      if (!stringsWithIndex.has(nodeName)) {
         allStrings.push(nodeName)
-        stringsWithIndex[nodeName] = allStrings.length - 1
+        stringsWithIndex.set(nodeName, allStrings.length - 1)
       }
-      heapNode.originalNodeFields[this.nodeNameOffset] = stringsWithIndex[nodeName]!
+      heapNode.originalNodeFields[this.nodeNameOffset] = stringsWithIndex.get(nodeName)!
       heapNode.originalNodeFields[this.nodeEdgeCountOffset] = heapNode.getEdgeCount()
+      heapNode.originalNodeFields[this.nodeDetachednessOffset] = DOMLinkState.Unknown
       nodeIndices[heapNode.originalIndex] = this.jsonHeapDump.nodes.length
       this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields)
     }
     for (const heapNode of sortedNodes) {
       for (const { node, edge } of heapNode.getNextNodesAndEdges()) {
         const edgeName = this.jsonHeapDump.strings[edge.getEdgeNameIndex()]
-        if (!stringsWithIndex[edgeName]) {
+        if (!stringsWithIndex.has(edgeName)) {
           allStrings.push(edgeName)
-          stringsWithIndex[edgeName] = allStrings.length - 1
+          stringsWithIndex.set(edgeName, allStrings.length - 1)
         }
-        edge.originalEdgeFields[this.edgeNameOffset] = stringsWithIndex[edgeName]!
+        edge.originalEdgeFields[this.edgeNameOffset] = stringsWithIndex.get(edgeName)!
         edge.originalEdgeFields[this.edgeToNodeOffset] = nodeIndices[node.originalIndex]!
         this.jsonHeapDump.edges.push(...edge.originalEdgeFields)
       }
@@ -266,8 +269,8 @@ export class GraphManager {
 
   private removeCycles(rootNode: HeapNode, nodeToFocus: HeapNode) {
     log('removing cycles in the graph....')
-    const visited = new Set<HeapNode>()
-    visited.add(rootNode)
+    const visited: Record<number, unknown> = {}
+    visited[rootNode.originalIndex] = null
 
     let nexts = rootNode.getNextNodes()
     let layer = 0
@@ -275,15 +278,15 @@ export class GraphManager {
       log(`removing cycles - layer: ${layer}. Layer size: ${nexts.length}.`)
       const nextLayer: HeapNode[] = []
       for (const next of nexts) {
-        if (!visited.has(next)) {
-          for (const prevNode of next.getPrevNodes().filter((prev) => !visited.has(prev))) {
+        if (!visited[next.originalIndex]) {
+          for (const prevNode of next.getPrevNodes().filter((prev) => !visited[prev.originalIndex])) {
             next.disconnectPrevNode(prevNode)
           }
         }
-        nextLayer.push(...next.getNextNodes().filter((n) => !visited.has(n)))
+        nextLayer.push(...next.getNextNodes().filter((n) => !visited[n.originalIndex]))
       }
       for (const visitedNode of nexts) {
-        visited.add(visitedNode)
+        visited[visitedNode.originalIndex] = null
       }
       nexts = nextLayer
       layer++
