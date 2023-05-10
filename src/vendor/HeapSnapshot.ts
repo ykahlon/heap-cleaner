@@ -576,7 +576,7 @@ export interface Profile {
 /**
  * DOM node link state.
  */
-const enum DOMLinkState {
+export const enum DOMLinkState {
   Unknown = 0,
   Attached = 1,
   Detached = 2,
@@ -654,7 +654,7 @@ export abstract class HeapSnapshot {
   dominatedNodes!: Uint32Array
   dominatorsTree!: Uint32Array
   #allocationProfile!: AllocationProfile
-  #nodeDetachednessOffset!: number
+  nodeDetachednessOffset!: number
   #locationMap!: Map<number, HeapSnapshotModel.Location>
   lazyStringCache!: {
     [x: string]: string
@@ -697,7 +697,7 @@ export abstract class HeapSnapshot {
     this.nodeSelfSizeOffset = meta.node_fields.indexOf('self_size')
     this.nodeEdgeCountOffset = meta.node_fields.indexOf('edge_count')
     this.nodeTraceNodeIdOffset = meta.node_fields.indexOf('trace_node_id')
-    this.#nodeDetachednessOffset = meta.node_fields.indexOf('detachedness')
+    this.nodeDetachednessOffset = meta.node_fields.indexOf('detachedness')
     this.nodeFieldCount = meta.node_fields.length
 
     this.nodeTypes = meta.node_types[this.nodeTypeOffset]
@@ -1692,7 +1692,7 @@ export abstract class HeapSnapshot {
    *   "Detached <Name>".
    */
   private propagateDOMState(): void {
-    if (this.#nodeDetachednessOffset === -1) {
+    if (this.nodeDetachednessOffset === -1) {
       return
     }
 
@@ -1737,7 +1737,7 @@ export abstract class HeapSnapshot {
         return
       }
 
-      snapshot.nodes[nodeIndex + snapshot.#nodeDetachednessOffset] = newState
+      snapshot.nodes[nodeIndex + snapshot.nodeDetachednessOffset] = newState
 
       if (newState === DOMLinkState.Attached) {
         attached.push(nodeOrdinal)
@@ -1763,7 +1763,7 @@ export abstract class HeapSnapshot {
     //    through processing to have their name adjusted and them enqueued in
     //    the respective queues.
     for (let nodeOrdinal = 0; nodeOrdinal < this.nodeCount; ++nodeOrdinal) {
-      const state = this.nodes[nodeOrdinal * this.nodeFieldCount + this.#nodeDetachednessOffset]
+      const state = this.nodes[nodeOrdinal * this.nodeFieldCount + this.nodeDetachednessOffset]
       // Bail out for objects that have no known state. For all other objects set that state.
       if (state === DOMLinkState.Unknown) {
         continue
@@ -1778,7 +1778,7 @@ export abstract class HeapSnapshot {
     // 3. If the parent is not attached, then the child inherits the parent's state.
     while (detached.length !== 0) {
       const nodeOrdinal = detached.pop() as number
-      const nodeState = this.nodes[nodeOrdinal * this.nodeFieldCount + this.#nodeDetachednessOffset]
+      const nodeState = this.nodes[nodeOrdinal * this.nodeFieldCount + this.nodeDetachednessOffset]
       // Ignore if the node has been found through propagating forward attached state.
       if (nodeState === DOMLinkState.Attached) {
         continue

@@ -1,6 +1,6 @@
 import { JsonHeapDump } from './protocol/json-heap-dump'
 import { HeapNode } from './protocol/heap-node'
-import { JSHeapSnapshot } from './vendor/HeapSnapshot'
+import { JSHeapSnapshot, DOMLinkState } from './vendor/HeapSnapshot'
 import { log } from './log'
 import { HeapEdge } from './protocol/heap-edge'
 
@@ -19,6 +19,7 @@ export class GraphManager {
   public readonly edgeNameOffset: number
   public readonly edgeToNodeOffset: number
   private readonly edgeWeakType: number
+  private readonly nodeDetachednessOffset: number
 
   constructor(snapshot: JSHeapSnapshot) {
     this.nodeFieldCount = snapshot.nodeFieldCount
@@ -30,6 +31,7 @@ export class GraphManager {
     this.edgeNameOffset = snapshot.edgeNameOffset
     this.edgeToNodeOffset = snapshot.edgeToNodeOffset
     this.edgeWeakType = snapshot.edgeWeakType
+    this.nodeDetachednessOffset = snapshot.nodeDetachednessOffset
 
     this.jsonHeapDump = {
       snapshot: { ...snapshot.profile.snapshot },
@@ -80,28 +82,29 @@ export class GraphManager {
     this.jsonHeapDump.nodes = []
     this.jsonHeapDump.edges = []
     const allStrings: string[] = []
-    const stringsWithIndex: Record<string, number> = {}
+    const stringsWithIndex: Map<string, number> = new Map()
 
     const nodeIndices: Record<number, number> = {}
     for (const heapNode of sortedNodes) {
       const nodeName = this.jsonHeapDump.strings[heapNode.getNodeNameIndex()]
-      if (!stringsWithIndex[nodeName]) {
+      if (!stringsWithIndex.has(nodeName)) {
         allStrings.push(nodeName)
-        stringsWithIndex[nodeName] = allStrings.length - 1
+        stringsWithIndex.set(nodeName, allStrings.length - 1)
       }
-      heapNode.originalNodeFields[this.nodeNameOffset] = stringsWithIndex[nodeName]!
+      heapNode.originalNodeFields[this.nodeNameOffset] = stringsWithIndex.get(nodeName)!
       heapNode.originalNodeFields[this.nodeEdgeCountOffset] = heapNode.getEdgeCount()
+      heapNode.originalNodeFields[this.nodeDetachednessOffset] = DOMLinkState.Unknown
       nodeIndices[heapNode.originalIndex] = this.jsonHeapDump.nodes.length
       this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields)
     }
     for (const heapNode of sortedNodes) {
       for (const { node, edge } of heapNode.getNextNodesAndEdges()) {
         const edgeName = this.jsonHeapDump.strings[edge.getEdgeNameIndex()]
-        if (!stringsWithIndex[edgeName]) {
+        if (!stringsWithIndex.has(edgeName)) {
           allStrings.push(edgeName)
-          stringsWithIndex[edgeName] = allStrings.length - 1
+          stringsWithIndex.set(edgeName, allStrings.length - 1)
         }
-        edge.originalEdgeFields[this.edgeNameOffset] = stringsWithIndex[edgeName]!
+        edge.originalEdgeFields[this.edgeNameOffset] = stringsWithIndex.get(edgeName)!
         edge.originalEdgeFields[this.edgeToNodeOffset] = nodeIndices[node.originalIndex]!
         this.jsonHeapDump.edges.push(...edge.originalEdgeFields)
       }
@@ -157,8 +160,8 @@ export class GraphManager {
 
     log('Removing all nodes that are not referenced by the root node...')
     const allRootChildren = this.getAllChildren(rootNode)
-    allRootChildren.add(rootNode)
-    if (!allRootChildren.has(nodeToFocus)) {
+    allRootChildren[rootNode.originalIndex] = rootNode
+    if (!allRootChildren[nodeToFocus.originalIndex]) {
       throw new Error('Node to focus needs to be a child of the root node after the non retainer deletion.')
     }
     this.deleteOtherNodes(allRootChildren)
@@ -175,16 +178,16 @@ export class GraphManager {
 
   private deleteNonRetainerNodes(nodeToFocus: HeapNode, rootNode: HeapNode) {
     const retainerNodes = this.collectRetainers(nodeToFocus)
-    if (!retainerNodes.has(rootNode)) {
+    if (!retainerNodes[rootNode.originalIndex]) {
       throw new Error('Root node is not a retainer of the node to focus')
     }
     this.deleteOtherNodes(retainerNodes)
   }
 
-  private deleteOtherNodes(retainerNodes: Set<HeapNode>) {
+  private deleteOtherNodes(retainerNodes: Record<number, HeapNode>) {
     // Delete prev nodes not relevant to the node we focus on
     for (const [indexInNodeMap, node] of Object.entries(this.nodeMap)) {
-      if (!retainerNodes.has(node)) {
+      if (!retainerNodes[node.originalIndex]) {
         this.deleteNode(Number(indexInNodeMap))
       }
     }
@@ -200,13 +203,13 @@ export class GraphManager {
     delete this.nodeMap[indexInNodeMap]
   }
 
-  private collectRetainers(nodeToFocus: HeapNode): Set<HeapNode> {
-    const retainerNodes = new Set<HeapNode>([])
+  private collectRetainers(nodeToFocus: HeapNode): Record<number, HeapNode> {
+    const retainerNodes: Record<number, HeapNode> = {}
     let queue = [nodeToFocus]
     while (queue.length > 0) {
       const prevNode = queue.pop()!
-      if (!retainerNodes.has(prevNode)) {
-        retainerNodes.add(prevNode)
+      if (!retainerNodes[prevNode.originalIndex]) {
+        retainerNodes[prevNode.originalIndex] = prevNode
         const prevNodes = prevNode.getPrevNodes()
         while (prevNodes.length > 0) {
           const chunk = prevNodes.splice(0, 1000)
@@ -238,24 +241,24 @@ export class GraphManager {
     }
   }
 
-  private getAllChildren(rootNode: HeapNode): Set<HeapNode> {
+  private getAllChildren(rootNode: HeapNode): Record<number, HeapNode> {
     const stack: HeapNode[] = []
     stack.push(...rootNode.getNextNodes())
-    const children = new Set<HeapNode>()
+    const children: Record<number, HeapNode> = {}
     while (stack.length) {
-      const tempStack = new Set<HeapNode>()
+      const tempStack: Record<number, HeapNode> = {}
       for (const current of stack) {
-        if (!children.has(current)) {
-          children.add(current)
+        if (!children[current.originalIndex]) {
+          children[current.originalIndex] = current
         }
         for (const next of current.getNextNodes()) {
-          if (!children.has(next)) {
-            tempStack.add(next)
+          if (!children[next.originalIndex]) {
+            tempStack[next.originalIndex] = next
           }
         }
       }
       stack.splice(0)
-      const nodes = Array.from(tempStack.values())
+      const nodes = Object.values(tempStack)
       while (nodes.length > 0) {
         const chunk = nodes.splice(0, 1000)
         stack.push(...chunk)
@@ -266,26 +269,31 @@ export class GraphManager {
 
   private removeCycles(rootNode: HeapNode, nodeToFocus: HeapNode) {
     log('removing cycles in the graph....')
-    const visited = new Set<HeapNode>()
-    visited.add(rootNode)
+    const visited: Record<number, true> = {}
+    visited[rootNode.originalIndex] = true
 
     let nexts = rootNode.getNextNodes()
     let layer = 0
     while (nexts.length) {
       log(`removing cycles - layer: ${layer}. Layer size: ${nexts.length}.`)
-      const nextLayer: HeapNode[] = []
+      const nextLayer: Record<number, HeapNode> = {}
       for (const next of nexts) {
-        if (!visited.has(next)) {
-          for (const prevNode of next.getPrevNodes().filter((prev) => !visited.has(prev))) {
+        if (!visited[next.originalIndex]) {
+          for (const prevNode of next.getPrevNodes().filter((prev) => !visited[prev.originalIndex])) {
             next.disconnectPrevNode(prevNode)
           }
         }
-        nextLayer.push(...next.getNextNodes().filter((n) => !visited.has(n)))
+        next
+          .getNextNodes()
+          .filter((n) => !visited[n.originalIndex])
+          .forEach((n) => {
+            nextLayer[n.originalIndex] = n
+          })
       }
       for (const visitedNode of nexts) {
-        visited.add(visitedNode)
+        visited[visitedNode.originalIndex] = true
       }
-      nexts = nextLayer
+      nexts = Object.values(nextLayer)
       layer++
       this.deleteNonRetainerNodes(nodeToFocus, rootNode)
     }
