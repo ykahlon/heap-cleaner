@@ -160,8 +160,8 @@ export class GraphManager {
 
     log('Removing all nodes that are not referenced by the root node...')
     const allRootChildren = this.getAllChildren(rootNode)
-    allRootChildren.add(rootNode)
-    if (!allRootChildren.has(nodeToFocus)) {
+    allRootChildren[rootNode.originalIndex] = rootNode
+    if (!allRootChildren[nodeToFocus.originalIndex]) {
       throw new Error('Node to focus needs to be a child of the root node after the non retainer deletion.')
     }
     this.deleteOtherNodes(allRootChildren)
@@ -178,16 +178,16 @@ export class GraphManager {
 
   private deleteNonRetainerNodes(nodeToFocus: HeapNode, rootNode: HeapNode) {
     const retainerNodes = this.collectRetainers(nodeToFocus)
-    if (!retainerNodes.has(rootNode)) {
+    if (!retainerNodes[rootNode.originalIndex]) {
       throw new Error('Root node is not a retainer of the node to focus')
     }
     this.deleteOtherNodes(retainerNodes)
   }
 
-  private deleteOtherNodes(retainerNodes: Set<HeapNode>) {
+  private deleteOtherNodes(retainerNodes: Record<number, HeapNode>) {
     // Delete prev nodes not relevant to the node we focus on
     for (const [indexInNodeMap, node] of Object.entries(this.nodeMap)) {
-      if (!retainerNodes.has(node)) {
+      if (!retainerNodes[node.originalIndex]) {
         this.deleteNode(Number(indexInNodeMap))
       }
     }
@@ -203,13 +203,13 @@ export class GraphManager {
     delete this.nodeMap[indexInNodeMap]
   }
 
-  private collectRetainers(nodeToFocus: HeapNode): Set<HeapNode> {
-    const retainerNodes = new Set<HeapNode>([])
+  private collectRetainers(nodeToFocus: HeapNode): Record<number, HeapNode> {
+    const retainerNodes: Record<number, HeapNode> = {}
     let queue = [nodeToFocus]
     while (queue.length > 0) {
       const prevNode = queue.pop()!
-      if (!retainerNodes.has(prevNode)) {
-        retainerNodes.add(prevNode)
+      if (!retainerNodes[prevNode.originalIndex]) {
+        retainerNodes[prevNode.originalIndex] = prevNode
         const prevNodes = prevNode.getPrevNodes()
         while (prevNodes.length > 0) {
           const chunk = prevNodes.splice(0, 1000)
@@ -241,24 +241,24 @@ export class GraphManager {
     }
   }
 
-  private getAllChildren(rootNode: HeapNode): Set<HeapNode> {
+  private getAllChildren(rootNode: HeapNode): Record<number, HeapNode> {
     const stack: HeapNode[] = []
     stack.push(...rootNode.getNextNodes())
-    const children = new Set<HeapNode>()
+    const children: Record<number, HeapNode> = {}
     while (stack.length) {
-      const tempStack = new Set<HeapNode>()
+      const tempStack: Record<number, HeapNode> = {}
       for (const current of stack) {
-        if (!children.has(current)) {
-          children.add(current)
+        if (!children[current.originalIndex]) {
+          children[current.originalIndex] = current
         }
         for (const next of current.getNextNodes()) {
-          if (!children.has(next)) {
-            tempStack.add(next)
+          if (!children[next.originalIndex]) {
+            tempStack[next.originalIndex] = next
           }
         }
       }
       stack.splice(0)
-      const nodes = Array.from(tempStack.values())
+      const nodes = Object.values(tempStack)
       while (nodes.length > 0) {
         const chunk = nodes.splice(0, 1000)
         stack.push(...chunk)
@@ -276,19 +276,24 @@ export class GraphManager {
     let layer = 0
     while (nexts.length) {
       log(`removing cycles - layer: ${layer}. Layer size: ${nexts.length}.`)
-      const nextLayer: HeapNode[] = []
+      const nextLayer: Record<number, HeapNode> = {}
       for (const next of nexts) {
         if (!visited[next.originalIndex]) {
           for (const prevNode of next.getPrevNodes().filter((prev) => !visited[prev.originalIndex])) {
             next.disconnectPrevNode(prevNode)
           }
         }
-        nextLayer.push(...next.getNextNodes().filter((n) => !visited[n.originalIndex]))
+        next
+          .getNextNodes()
+          .filter((n) => !visited[n.originalIndex])
+          .forEach((n) => {
+            nextLayer[n.originalIndex] = n
+          })
       }
       for (const visitedNode of nexts) {
         visited[visitedNode.originalIndex] = true
       }
-      nexts = nextLayer
+      nexts = Object.values(nextLayer)
       layer++
       this.deleteNonRetainerNodes(nodeToFocus, rootNode)
     }
