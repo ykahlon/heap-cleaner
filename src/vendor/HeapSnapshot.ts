@@ -643,7 +643,7 @@ export abstract class HeapSnapshot {
   #locationColumnOffset!: number
   #locationFieldCount!: number
   nodeCount!: number
-  #edgeCount!: number
+  // #edgeCount!: number
   retainedSizes!: Float64Array
   firstEdgeIndexes!: Uint32Array
   retainingNodes!: Uint32Array
@@ -733,16 +733,16 @@ export abstract class HeapSnapshot {
     this.#locationFieldCount = locationFields.length
 
     this.nodeCount = this.nodes.length / this.nodeFieldCount
-    this.#edgeCount = this.containmentEdges.length / this.edgeFieldsCount
+    // this.#edgeCount = this.containmentEdges.length / this.edgeFieldsCount
 
-    this.retainedSizes = new Float64Array(this.nodeCount)
+    // this.retainedSizes = new Float64Array(this.nodeCount)
     this.firstEdgeIndexes = new Uint32Array(this.nodeCount + 1)
-    this.retainingNodes = new Uint32Array(this.#edgeCount)
-    this.retainingEdges = new Uint32Array(this.#edgeCount)
-    this.firstRetainerIndex = new Uint32Array(this.nodeCount + 1)
-    this.nodeDistances = new Int32Array(this.nodeCount)
-    this.firstDominatedNodeIndex = new Uint32Array(this.nodeCount + 1)
-    this.dominatedNodes = new Uint32Array(this.nodeCount - 1)
+    // this.retainingNodes = new Uint32Array(this.#edgeCount)
+    // this.retainingEdges = new Uint32Array(this.#edgeCount)
+    // this.firstRetainerIndex = new Uint32Array(this.nodeCount + 1)
+    // this.nodeDistances = new Int32Array(this.nodeCount)
+    // this.firstDominatedNodeIndex = new Uint32Array(this.nodeCount + 1)
+    // this.dominatedNodes = new Uint32Array(this.nodeCount - 1)
 
     this.#progress.updateStatus('Building edge indexes…')
     this.buildEdgeIndexes()
@@ -750,52 +750,52 @@ export abstract class HeapSnapshot {
     this.buildRetainers()
     this.#progress.updateStatus('Propagating DOM state…')
     this.propagateDOMState()
-    this.#progress.updateStatus('Calculating node flags…')
-    this.calculateFlags()
-    this.#progress.updateStatus('Calculating distances…')
-    this.calculateDistances()
-    this.#progress.updateStatus('Building postorder index…')
-    const result = this.buildPostOrderIndex()
+    // this.#progress.updateStatus('Calculating node flags…')
+    // this.calculateFlags()
+    // this.#progress.updateStatus('Calculating distances…')
+    // this.calculateDistances()
+    // this.#progress.updateStatus('Building postorder index…')
+    // const result = this.buildPostOrderIndex()
     // Actually it is array that maps node ordinal number to dominator node ordinal number.
-    this.#progress.updateStatus('Building dominator tree…')
-    this.dominatorsTree = this.buildDominatorTree(result.postOrderIndex2NodeOrdinal, result.nodeOrdinal2PostOrderIndex)
-    this.#progress.updateStatus('Calculating retained sizes…')
-    this.calculateRetainedSizes(result.postOrderIndex2NodeOrdinal)
-    this.#progress.updateStatus('Building dominated nodes…')
-    this.buildDominatedNodes()
-    this.#progress.updateStatus('Calculating statistics…')
-    this.calculateStatistics()
-    this.#progress.updateStatus('Calculating samples…')
-    this.buildSamples()
-    this.#progress.updateStatus('Building locations…')
-    this.buildLocationMap()
+    // this.#progress.updateStatus('Building dominator tree…')
+    // this.dominatorsTree = this.buildDominatorTree(result.postOrderIndex2NodeOrdinal, result.nodeOrdinal2PostOrderIndex)
+    // this.#progress.updateStatus('Calculating retained sizes…')
+    // this.calculateRetainedSizes(result.postOrderIndex2NodeOrdinal)
+    // this.#progress.updateStatus('Building dominated nodes…')
+    // this.buildDominatedNodes()
+    // this.#progress.updateStatus('Calculating statistics…')
+    // this.calculateStatistics()
+    // this.#progress.updateStatus('Calculating samples…')
+    // this.buildSamples()
+    // this.#progress.updateStatus('Building locations…')
+    // this.buildLocationMap()
     this.#progress.updateStatus('Finished processing.')
 
-    if (this.#profile.snapshot.trace_function_count) {
-      this.#progress.updateStatus('Building allocation statistics…')
-      const nodes = this.nodes
-      const nodesLength = nodes.length
-      const nodeFieldCount = this.nodeFieldCount
-      const node = this.rootNode()
-      const liveObjects: { [x: number]: { count: number; size: number; ids: number[] } } = {}
-      for (let nodeIndex = 0; nodeIndex < nodesLength; nodeIndex += nodeFieldCount) {
-        node.nodeIndex = nodeIndex
-        const traceNodeId = node.traceNodeId()
-        let stats: {
-          count: number
-          size: number
-          ids: number[]
-        } = liveObjects[traceNodeId]
-        if (!stats) {
-          liveObjects[traceNodeId] = stats = { count: 0, size: 0, ids: [] }
-        }
-        stats.count++
-        stats.size += node.selfSize()
-        stats.ids.push(node.id())
-      }
-      this.#allocationProfile = new AllocationProfile(this.#profile, liveObjects)
-      this.#progress.updateStatus('done')
-    }
+    // if (this.#profile.snapshot.trace_function_count) {
+    //   this.#progress.updateStatus('Building allocation statistics…')
+    //   const nodes = this.nodes
+    //   const nodesLength = nodes.length
+    //   const nodeFieldCount = this.nodeFieldCount
+    //   const node = this.rootNode()
+    //   const liveObjects: { [x: number]: { count: number; size: number; ids: number[] } } = {}
+    //   for (let nodeIndex = 0; nodeIndex < nodesLength; nodeIndex += nodeFieldCount) {
+    //     node.nodeIndex = nodeIndex
+    //     const traceNodeId = node.traceNodeId()
+    //     let stats: {
+    //       count: number
+    //       size: number
+    //       ids: number[]
+    //     } = liveObjects[traceNodeId]
+    //     if (!stats) {
+    //       liveObjects[traceNodeId] = stats = { count: 0, size: 0, ids: [] }
+    //     }
+    //     stats.count++
+    //     stats.size += node.selfSize()
+    //     stats.ids.push(node.id())
+    //   }
+    //   this.#allocationProfile = new AllocationProfile(this.#profile, liveObjects)
+    //   this.#progress.updateStatus('done')
+    // }
   }
 
   private buildEdgeIndexes(): void {
@@ -812,6 +812,7 @@ export abstract class HeapSnapshot {
     }
   }
 
+  // @ts-ignore
   private buildRetainers(): void {
     const retainingNodes = this.retainingNodes
     const retainingEdges = this.retainingEdges
@@ -1299,6 +1300,7 @@ export abstract class HeapSnapshot {
     )
   }
 
+  // @ts-ignore
   private buildPostOrderIndex(): { postOrderIndex2NodeOrdinal: Uint32Array; nodeOrdinal2PostOrderIndex: Uint32Array } {
     const nodeFieldCount = this.nodeFieldCount
     const nodeCount = this.nodeCount
@@ -1450,6 +1452,7 @@ export abstract class HeapSnapshot {
   // The algorithm is based on the article:
   // K. Cooper, T. Harvey and K. Kennedy "A Simple, Fast Dominance Algorithm"
   // Softw. Pract. Exper. 4 (2001), pp. 1-10.
+  // @ts-ignore
   private buildDominatorTree(
     postOrderIndex2NodeOrdinal: Uint32Array,
     nodeOrdinal2PostOrderIndex: Uint32Array
@@ -1582,6 +1585,7 @@ export abstract class HeapSnapshot {
     return dominatorsTree
   }
 
+  // @ts-ignore
   private calculateRetainedSizes(postOrderIndex2NodeOrdinal: Uint32Array): void {
     const nodeCount = this.nodeCount
     const nodes = this.nodes
@@ -1602,6 +1606,7 @@ export abstract class HeapSnapshot {
     }
   }
 
+  // @ts-ignore
   private buildDominatedNodes(): void {
     // Builds up two arrays:
     //  - "dominatedNodes" is a continuous array, where each node owns an
@@ -1691,6 +1696,7 @@ export abstract class HeapSnapshot {
    * - Name of any detached node is changed from "<Name>"" to
    *   "Detached <Name>".
    */
+  // @ts-ignore
   private propagateDOMState(): void {
     if (this.nodeDetachednessOffset === -1) {
       return
@@ -1789,6 +1795,7 @@ export abstract class HeapSnapshot {
     console.timeEnd('propagateDOMState')
   }
 
+  // @ts-ignore
   private buildSamples(): void {
     const samples = this.#rawSamples
     if (!samples || !samples.length) {
@@ -1833,6 +1840,7 @@ export abstract class HeapSnapshot {
     this.#samples = new HeapSnapshotModel.Samples(timestamps, lastAssignedIds, sizeForRange)
   }
 
+  // @ts-ignore
   private buildLocationMap(): void {
     const map = new Map<number, HeapSnapshotModel.Location>()
     const locations = this.#locations
