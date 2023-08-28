@@ -30,5 +30,4 @@
 
 import * as ArrayUtilities from './array-utilities'
 import * as StringUtilities from './string-utilities'
-
 export { ArrayUtilities, StringUtilities }

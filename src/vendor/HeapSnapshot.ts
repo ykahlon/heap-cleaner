@@ -614,7 +614,7 @@ export abstract class HeapSnapshot {
   nodeNameOffset!: number
   nodeIdOffset!: number
   nodeSelfSizeOffset!: number
-  nodeEdgeCountOffset!: number
+  #nodeEdgeCountOffset!: number
   nodeTraceNodeIdOffset!: number
   nodeFieldCount!: number
   nodeTypes!: string[]
@@ -643,7 +643,7 @@ export abstract class HeapSnapshot {
   #locationColumnOffset!: number
   #locationFieldCount!: number
   nodeCount!: number
-  // #edgeCount!: number
+  #edgeCount!: number
   retainedSizes!: Float64Array
   firstEdgeIndexes!: Uint32Array
   retainingNodes!: Uint32Array
@@ -654,7 +654,7 @@ export abstract class HeapSnapshot {
   dominatedNodes!: Uint32Array
   dominatorsTree!: Uint32Array
   #allocationProfile!: AllocationProfile
-  nodeDetachednessOffset!: number
+  #nodeDetachednessOffset!: number
   #locationMap!: Map<number, HeapSnapshotModel.Location>
   lazyStringCache!: {
     [x: string]: string
@@ -688,6 +688,14 @@ export abstract class HeapSnapshot {
     return this.#profile
   }
 
+  get nodeEdgeCountOffset() {
+    return this.#nodeEdgeCountOffset
+  }
+
+  get nodeDetachednessOffset() {
+    return this.#nodeDetachednessOffset
+  }
+
   initialize(): void {
     const meta = this.#metaNode
 
@@ -695,9 +703,9 @@ export abstract class HeapSnapshot {
     this.nodeNameOffset = meta.node_fields.indexOf('name')
     this.nodeIdOffset = meta.node_fields.indexOf('id')
     this.nodeSelfSizeOffset = meta.node_fields.indexOf('self_size')
-    this.nodeEdgeCountOffset = meta.node_fields.indexOf('edge_count')
+    this.#nodeEdgeCountOffset = meta.node_fields.indexOf('edge_count')
     this.nodeTraceNodeIdOffset = meta.node_fields.indexOf('trace_node_id')
-    this.nodeDetachednessOffset = meta.node_fields.indexOf('detachedness')
+    this.#nodeDetachednessOffset = meta.node_fields.indexOf('detachedness')
     this.nodeFieldCount = meta.node_fields.length
 
     this.nodeTypes = meta.node_types[this.nodeTypeOffset]
@@ -733,16 +741,16 @@ export abstract class HeapSnapshot {
     this.#locationFieldCount = locationFields.length
 
     this.nodeCount = this.nodes.length / this.nodeFieldCount
-    // this.#edgeCount = this.containmentEdges.length / this.edgeFieldsCount
+    this.#edgeCount = this.containmentEdges.length / this.edgeFieldsCount
 
-    // this.retainedSizes = new Float64Array(this.nodeCount)
+    this.retainedSizes = new Float64Array(this.nodeCount)
     this.firstEdgeIndexes = new Uint32Array(this.nodeCount + 1)
-    // this.retainingNodes = new Uint32Array(this.#edgeCount)
-    // this.retainingEdges = new Uint32Array(this.#edgeCount)
-    // this.firstRetainerIndex = new Uint32Array(this.nodeCount + 1)
-    // this.nodeDistances = new Int32Array(this.nodeCount)
-    // this.firstDominatedNodeIndex = new Uint32Array(this.nodeCount + 1)
-    // this.dominatedNodes = new Uint32Array(this.nodeCount - 1)
+    this.retainingNodes = new Uint32Array(this.#edgeCount)
+    this.retainingEdges = new Uint32Array(this.#edgeCount)
+    this.firstRetainerIndex = new Uint32Array(this.nodeCount + 1)
+    this.nodeDistances = new Int32Array(this.nodeCount)
+    this.firstDominatedNodeIndex = new Uint32Array(this.nodeCount + 1)
+    this.dominatedNodes = new Uint32Array(this.nodeCount - 1)
 
     this.#progress.updateStatus('Building edge indexes…')
     this.buildEdgeIndexes()
@@ -756,7 +764,7 @@ export abstract class HeapSnapshot {
     // this.calculateDistances()
     // this.#progress.updateStatus('Building postorder index…')
     // const result = this.buildPostOrderIndex()
-    // Actually it is array that maps node ordinal number to dominator node ordinal number.
+    // // Actually it is array that maps node ordinal number to dominator node ordinal number.
     // this.#progress.updateStatus('Building dominator tree…')
     // this.dominatorsTree = this.buildDominatorTree(result.postOrderIndex2NodeOrdinal, result.nodeOrdinal2PostOrderIndex)
     // this.#progress.updateStatus('Calculating retained sizes…')
@@ -804,7 +812,7 @@ export abstract class HeapSnapshot {
     const firstEdgeIndexes = this.firstEdgeIndexes
     const nodeFieldCount = this.nodeFieldCount
     const edgeFieldsCount = this.edgeFieldsCount
-    const nodeEdgeCountOffset = this.nodeEdgeCountOffset
+    const nodeEdgeCountOffset = this.#nodeEdgeCountOffset
     firstEdgeIndexes[nodeCount] = this.containmentEdges.length
     for (let nodeOrdinal = 0, edgeIndex = 0; nodeOrdinal < nodeCount; ++nodeOrdinal) {
       firstEdgeIndexes[nodeOrdinal] = edgeIndex
@@ -812,7 +820,6 @@ export abstract class HeapSnapshot {
     }
   }
 
-  // @ts-ignore
   private buildRetainers(): void {
     const retainingNodes = this.retainingNodes
     const retainingEdges = this.retainingEdges
@@ -961,7 +968,9 @@ export abstract class HeapSnapshot {
     return nodeIds
   }
 
-  aggregatesWithFilter(nodeFilter: HeapSnapshotModel.NodeFilter): { [x: string]: HeapSnapshotModel.Aggregate } {
+  aggregatesWithFilter(nodeFilter: HeapSnapshotModel.NodeFilter): {
+    [x: string]: HeapSnapshotModel.Aggregate
+  } {
     const filter = this.createFilter(nodeFilter)
     // @ts-ignore key is added in createFilter
     const key = filter ? filter.key : 'allObjects'
@@ -1017,7 +1026,7 @@ export abstract class HeapSnapshot {
     }
 
     if (sortedIndexes && (!key || !this.#aggregatesSortedFlags[key])) {
-      this.sortAggregateIndexes(aggregates.aggregatesByClassName)
+      this.sortAggregateIndexes(aggregatesByClassName)
       if (key) {
         this.#aggregatesSortedFlags[key] = sortedIndexes
       }
@@ -1696,9 +1705,8 @@ export abstract class HeapSnapshot {
    * - Name of any detached node is changed from "<Name>"" to
    *   "Detached <Name>".
    */
-  // @ts-ignore
   private propagateDOMState(): void {
-    if (this.nodeDetachednessOffset === -1) {
+    if (this.#nodeDetachednessOffset === -1) {
       return
     }
 
@@ -1743,7 +1751,7 @@ export abstract class HeapSnapshot {
         return
       }
 
-      snapshot.nodes[nodeIndex + snapshot.nodeDetachednessOffset] = newState
+      snapshot.nodes[nodeIndex + snapshot.#nodeDetachednessOffset] = newState
 
       if (newState === DOMLinkState.Attached) {
         attached.push(nodeOrdinal)
@@ -1769,7 +1777,7 @@ export abstract class HeapSnapshot {
     //    through processing to have their name adjusted and them enqueued in
     //    the respective queues.
     for (let nodeOrdinal = 0; nodeOrdinal < this.nodeCount; ++nodeOrdinal) {
-      const state = this.nodes[nodeOrdinal * this.nodeFieldCount + this.nodeDetachednessOffset]
+      const state = this.nodes[nodeOrdinal * this.nodeFieldCount + this.#nodeDetachednessOffset]
       // Bail out for objects that have no known state. For all other objects set that state.
       if (state === DOMLinkState.Unknown) {
         continue
@@ -1784,7 +1792,7 @@ export abstract class HeapSnapshot {
     // 3. If the parent is not attached, then the child inherits the parent's state.
     while (detached.length !== 0) {
       const nodeOrdinal = detached.pop() as number
-      const nodeState = this.nodes[nodeOrdinal * this.nodeFieldCount + this.nodeDetachednessOffset]
+      const nodeState = this.nodes[nodeOrdinal * this.nodeFieldCount + this.#nodeDetachednessOffset]
       // Ignore if the node has been found through propagating forward attached state.
       if (nodeState === DOMLinkState.Attached) {
         continue
@@ -2430,7 +2438,7 @@ export class JSHeapSnapshot extends HeapSnapshot {
     detachedDOMTreeNode: number
     pageObject: number // The idea is to track separately the objects owned by the page and the objects owned by debugger.
   }
-  lazyStringCache: {}
+  override lazyStringCache: {}
   private flags!: Uint32Array
   #statistics?: HeapSnapshotModel.Statistics
   constructor(profile: Profile, progress: HeapSnapshotProgress) {
@@ -2457,11 +2465,11 @@ export class JSHeapSnapshot extends HeapSnapshot {
     return new JSHeapSnapshotRetainerEdge(this, retainerIndex)
   }
 
-  containmentEdgesFilter(): (arg0: HeapSnapshotEdge) => boolean {
+  override containmentEdgesFilter(): (arg0: HeapSnapshotEdge) => boolean {
     return (edge: HeapSnapshotEdge): boolean => !edge.isInvisible()
   }
 
-  retainingEdgesFilter(): (arg0: HeapSnapshotEdge) => boolean {
+  override retainingEdgesFilter(): (arg0: HeapSnapshotEdge) => boolean {
     const containmentEdgesFilter = this.containmentEdgesFilter()
     function filter(edge: HeapSnapshotEdge): boolean {
       return containmentEdgesFilter(edge) && !edge.node().isRoot() && !edge.isWeak()
@@ -2469,14 +2477,14 @@ export class JSHeapSnapshot extends HeapSnapshot {
     return filter
   }
 
-  calculateFlags(): void {
+  override calculateFlags(): void {
     this.flags = new Uint32Array(this.nodeCount)
     this.markDetachedDOMTreeNodes()
     this.markQueriableHeapObjects()
     this.markPageOwnedNodes()
   }
 
-  calculateDistances(): void {
+  override calculateDistances(): void {
     function filter(node: HeapSnapshotNode, edge: HeapSnapshotEdge): boolean {
       if (node.isHidden()) {
         return edge.name() !== 'sloppy_function_map' || node.rawName() !== 'system / NativeContext'
@@ -2506,11 +2514,11 @@ export class JSHeapSnapshot extends HeapSnapshot {
     super.calculateDistances(filter)
   }
 
-  isUserRoot(node: HeapSnapshotNode): boolean {
+  override isUserRoot(node: HeapSnapshotNode): boolean {
     return node.isUserRoot() || node.isDocumentDOMTreesRoot()
   }
 
-  userObjectsMapAndFlag(): { map: Uint32Array; flag: number } | null {
+  override userObjectsMapAndFlag(): { map: Uint32Array; flag: number } | null {
     return { map: this.flags, flag: this.nodeFlags.pageObject }
   }
 
@@ -2654,7 +2662,7 @@ export class JSHeapSnapshot extends HeapSnapshot {
     }
   }
 
-  calculateStatistics(): void {
+  override calculateStatistics(): void {
     const nodeFieldCount = this.nodeFieldCount
     const nodes = this.nodes
     const nodesLength = nodes.length
@@ -2746,11 +2754,11 @@ export class JSHeapSnapshotNode extends HeapSnapshotNode {
     return Boolean(flags & snapshot.nodeFlags.canBeQueried)
   }
 
-  rawName(): string {
+  override rawName(): string {
     return super.name()
   }
 
-  name(): string {
+  override name(): string {
     const snapshot = this.snapshot
     if (this.rawType() === snapshot.nodeConsStringType) {
       let string: string = snapshot.lazyStringCache[this.nodeIndex]
@@ -2814,7 +2822,7 @@ export class JSHeapSnapshotNode extends HeapSnapshotNode {
     return name
   }
 
-  className(): string {
+  override className(): string {
     const type = this.type()
     switch (type) {
       case 'hidden':
@@ -2829,7 +2837,7 @@ export class JSHeapSnapshotNode extends HeapSnapshotNode {
     }
   }
 
-  classIndex(): number {
+  override classIndex(): number {
     const snapshot = this.snapshot
     const nodes = snapshot.nodes
     const type = nodes[this.nodeIndex + snapshot.nodeTypeOffset]
@@ -2839,16 +2847,16 @@ export class JSHeapSnapshotNode extends HeapSnapshotNode {
     return -1 - type
   }
 
-  id(): number {
+  override id(): number {
     const snapshot = this.snapshot
     return snapshot.nodes[this.nodeIndex + snapshot.nodeIdOffset]
   }
 
-  isHidden(): boolean {
+  override isHidden(): boolean {
     return this.rawType() === this.snapshot.nodeHiddenType
   }
 
-  isArray(): boolean {
+  override isArray(): boolean {
     return this.rawType() === this.snapshot.nodeArrayType
   }
 
@@ -2856,15 +2864,15 @@ export class JSHeapSnapshotNode extends HeapSnapshotNode {
     return this.rawType() === this.snapshot.nodeSyntheticType
   }
 
-  isUserRoot(): boolean {
+  override isUserRoot(): boolean {
     return !this.isSynthetic()
   }
 
-  isDocumentDOMTreesRoot(): boolean {
+  override isDocumentDOMTreesRoot(): boolean {
     return this.isSynthetic() && this.name() === '(Document DOM trees)'
   }
 
-  serialize(): HeapSnapshotModel.Node {
+  override serialize(): HeapSnapshotModel.Node {
     const result = super.serialize()
     const snapshot = this.snapshot as JSHeapSnapshot
     const flags = snapshot.flagsOfNode(this)
@@ -2883,12 +2891,12 @@ export class JSHeapSnapshotEdge extends HeapSnapshotEdge {
     super(snapshot, edgeIndex)
   }
 
-  clone(): JSHeapSnapshotEdge {
+  override clone(): JSHeapSnapshotEdge {
     const snapshot = this.snapshot as JSHeapSnapshot
     return new JSHeapSnapshotEdge(snapshot, this.edgeIndex)
   }
 
-  hasStringName(): boolean {
+  override hasStringName(): boolean {
     if (!this.isShortcut()) {
       return this.hasStringNameInternal()
     }
@@ -2904,7 +2912,7 @@ export class JSHeapSnapshotEdge extends HeapSnapshotEdge {
     return this.rawType() === this.snapshot.edgeHiddenType
   }
 
-  isWeak(): boolean {
+  override isWeak(): boolean {
     return this.rawType() === this.snapshot.edgeWeakType
   }
 
@@ -2912,7 +2920,7 @@ export class JSHeapSnapshotEdge extends HeapSnapshotEdge {
     return this.rawType() === this.snapshot.edgeInternalType
   }
 
-  isInvisible(): boolean {
+  override isInvisible(): boolean {
     return this.rawType() === this.snapshot.edgeInvisibleType
   }
 
@@ -2920,7 +2928,7 @@ export class JSHeapSnapshotEdge extends HeapSnapshotEdge {
     return this.rawType() === this.snapshot.edgeShortcutType
   }
 
-  name(): string {
+  override name(): string {
     const name = this.nameInternal()
     if (!this.isShortcut()) {
       return String(name)
@@ -2930,7 +2938,7 @@ export class JSHeapSnapshotEdge extends HeapSnapshotEdge {
     return String(isNaN(numName) ? name : numName)
   }
 
-  toString(): string {
+  override toString(): string {
     const name = this.name()
     switch (this.type()) {
       case 'context':
@@ -2968,7 +2976,7 @@ export class JSHeapSnapshotEdge extends HeapSnapshotEdge {
     return this.edges[this.edgeIndex + this.snapshot.edgeNameOffset]
   }
 
-  rawType(): number {
+  override rawType(): number {
     return this.edges[this.edgeIndex + this.snapshot.edgeTypeOffset]
   }
 }
@@ -2978,7 +2986,7 @@ export class JSHeapSnapshotRetainerEdge extends HeapSnapshotRetainerEdge {
     super(snapshot, retainerIndex)
   }
 
-  clone(): JSHeapSnapshotRetainerEdge {
+  override clone(): JSHeapSnapshotRetainerEdge {
     const snapshot = this.snapshot as JSHeapSnapshot
     return new JSHeapSnapshotRetainerEdge(snapshot, this.retainerIndex())
   }

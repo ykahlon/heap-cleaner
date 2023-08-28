@@ -28,9 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { Worker } from 'worker_threads'
 import type * as HeapSnapshotModel from './HeapSnapshotModel'
-
 interface DispatcherResponse {
   callId?: number
   // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
@@ -111,7 +109,7 @@ export class HeapSnapshotWorkerDispatcher {
         }
         case 'evaluateForTest': {
           try {
-            response.result = eval(data.source)
+            response.result = self.eval(data.source)
           } catch (error) {
             response.result = (error as Error).toString()
           }
