@@ -140,14 +140,17 @@ export class GraphManager {
     log('Disconnecting the root from the previous nodes...')
     rootNode.disconnectPrevNodes()
 
-    // Optimization (need to verify if correct) - feedback cells can be ignored when exploring memory leaks.
     log('Removing feedback cells...')
     this.disconnectEdgesWithName('feedback_cell')
 
-    //    log('Removing weak links...');
+    log('Removing weak links...')
     this.disconnectEdgesWithType(this.edgeWeakType)
+    // this.disconnectEdgesMatchName(/part of key .* -> value .* pair in WeakMap/)
     this.disconnectNodesWithName('WeakMap')
     this.disconnectNodesWithName('system / StackTraceFrame')
+
+    // log('Removing constructors')
+    // this.disconnectEdgesWithName('__proto__', 'constructor', 'prototype')
 
     log('Removing all nodes that are not retainers of node to focus...')
     // Cleanup some of the data structure by removing non-retainer nodes.
@@ -300,14 +303,32 @@ export class GraphManager {
   }
 
   private disconnectEdgesWithName(...edgeNamesToDisconnect: string[]) {
-    const indexes = edgeNamesToDisconnect.reduce(
-      (acc, edgeNameToDelete) =>
-        acc.concat(this.jsonHeapDump.strings.findIndex((string) => string === edgeNameToDelete)),
-      [] as number[]
-    )
+    const indexes: Record<number, true> = {}
+    for (const idx in this.jsonHeapDump.strings) {
+      if (edgeNamesToDisconnect.some((edgeNameToDelete) => edgeNameToDelete === this.jsonHeapDump.strings[idx])) {
+        indexes[idx] = true
+      }
+    }
     for (const node of Object.values(this.nodeMap)) {
       for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
-        if (indexes.includes(nextEdgeAndNode.edge.getEdgeNameIndex())) {
+        if (indexes[nextEdgeAndNode.edge.getEdgeNameIndex()]) {
+          node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge)
+        }
+      }
+    }
+  }
+
+  // @ts-ignore
+  private disconnectEdgesMatchName(...edgeNamesToDisconnect: RegExp[]) {
+    const indexes: Record<number, true> = {}
+    for (const idx in this.jsonHeapDump.strings) {
+      if (edgeNamesToDisconnect.some((edgeNameToDelete) => edgeNameToDelete.test(this.jsonHeapDump.strings[idx]))) {
+        indexes[idx] = true
+      }
+    }
+    for (const node of Object.values(this.nodeMap)) {
+      for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
+        if (indexes[nextEdgeAndNode.edge.getEdgeNameIndex()]) {
           node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge)
         }
       }
@@ -325,8 +346,8 @@ export class GraphManager {
   }
 
   private disconnectNodesWithName(...nodeNamesToDisconnect: string[]) {
-    for (const node of Object.values(this.nodeMap)) {
-      for (const nodeNameToDelete of nodeNamesToDisconnect) {
+    for (const nodeNameToDelete of nodeNamesToDisconnect) {
+      for (const node of Object.values(this.nodeMap)) {
         if (this.jsonHeapDump.strings[node.getNodeNameIndex()] === nodeNameToDelete) {
           node.disconnectNextNodes()
           node.disconnectPrevNodes()

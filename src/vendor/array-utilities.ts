@@ -129,15 +129,23 @@ export const mergeOrdered = <T>(array1: T[], array2: T[], comparator: (a: T, b: 
   return mergeOrIntersect(array1, array2, comparator, true)
 }
 
-export const DEFAULT_COMPARATOR = (a: string | number, b: string | number): number => {
+export const DEFAULT_COMPARATOR = (a: string | number, b: string | number): -1 | 0 | 1 => {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
 /**
- * Return index of the leftmost element that is equal or greater
- * than the specimen object. If there's no such element (i.e. all
- * elements are smaller than the specimen) returns right bound.
- * The function works for sorted array.
+ * Returns the index of the element closest to the needle that is equal to or
+ * greater than it. Assumes that the provided array is sorted.
+ *
+ * If no element is found, the right bound is returned.
+ *
+ * Uses the provided comparator function to determine if two items are equal or
+ * if one is greater than the other. If you are working with strings or
+ * numbers, you can use ArrayUtilities.DEFAULT_COMPARATOR. Otherwise, you
+ * should define one that takes the needle element and an element from the
+ * array and returns a positive or negative number to indicate which is greater
+ * than the other.
+ *
  * When specified, |left| (inclusive) and |right| (exclusive) indices
  * define the search window.
  */
@@ -176,10 +184,18 @@ export function lowerBound<S, T, A extends S[]>(
 }
 
 /**
- * Return index of the leftmost element that is greater
- * than the specimen object. If there's no such element (i.e. all
- * elements are smaller or equal to the specimen) returns right bound.
- * The function works for sorted array.
+ * Returns the index of the element closest to the needle that is greater than
+ * it. Assumes that the provided array is sorted.
+ *
+ * If no element is found, the right bound is returned.
+ *
+ * Uses the provided comparator function to determine if two items are equal or
+ * if one is greater than the other. If you are working with strings or
+ * numbers, you can use ArrayUtilities.DEFAULT_COMPARATOR. Otherwise, you
+ * should define one that takes the needle element and an element from the
+ * array and returns a positive or negative number to indicate which is greater
+ * than the other.
+ *
  * When specified, |left| (inclusive) and |right| (exclusive) indices
  * define the search window.
  */
@@ -215,4 +231,89 @@ export function upperBound<S, T, A extends S[]>(
     }
   }
   return r
+}
+
+const enum NearestSearchStart {
+  BEGINNING = 'BEGINNING',
+  END = 'END',
+}
+/**
+ * Obtains the first or last item in the array that satisfies the predicate function.
+ * So, for example, if the array were arr = [2, 4, 6, 8, 10], and you are looking for
+ * the last item arr[i] such that arr[i] < 5  you would be returned 1, because
+ * array[1] is 4, the last item in the array that satisfies the
+ * predicate function.
+ *
+ * If instead you were looking for the first item in the same array that satisfies
+ * arr[i] > 5 you would be returned 2 because array[2] = 6.
+ *
+ * Please note: this presupposes that the array is already ordered.
+ */
+function nearestIndex<T>(
+  arr: T[],
+  predicate: (arrayItem: T) => boolean,
+  searchStart: NearestSearchStart
+): number | null {
+  const searchFromEnd = searchStart === NearestSearchStart.END
+  if (arr.length === 0) {
+    return null
+  }
+
+  let left = 0
+  let right = arr.length - 1
+  let pivot = 0
+  let matchesPredicate = false
+  let moveToTheRight = false
+  let middle = 0
+  do {
+    middle = left + (right - left) / 2
+    pivot = searchFromEnd ? Math.ceil(middle) : Math.floor(middle)
+    matchesPredicate = predicate(arr[pivot])
+    moveToTheRight = matchesPredicate === searchFromEnd
+    if (moveToTheRight) {
+      left = Math.min(right, pivot + (left === pivot ? 1 : 0))
+    } else {
+      right = Math.max(left, pivot + (right === pivot ? -1 : 0))
+    }
+  } while (right !== left)
+
+  // Special-case: the indexed item doesn't pass the predicate. This
+  // occurs when none of the items in the array are a match for the
+  // predicate.
+  if (!predicate(arr[left])) {
+    return null
+  }
+  return left
+}
+
+/**
+ * Obtains the first item in the array that satisfies the predicate function.
+ * So, for example, if the array was arr = [2, 4, 6, 8, 10], and you are looking for
+ * the first item arr[i] such that arr[i] > 5 you would be returned 2, because
+ * array[2] is 6, the first item in the array that satisfies the
+ * predicate function.
+ *
+ * Please note: this presupposes that the array is already ordered.
+ */
+export function nearestIndexFromBeginning<T>(arr: T[], predicate: (arrayItem: T) => boolean): number | null {
+  return nearestIndex(arr, predicate, NearestSearchStart.BEGINNING)
+}
+
+/**
+ * Obtains the last item in the array that satisfies the predicate function.
+ * So, for example, if the array was arr = [2, 4, 6, 8, 10], and you are looking for
+ * the last item arr[i] such that arr[i] < 5 you would be returned 1, because
+ * arr[1] is 4, the last item in the array that satisfies the
+ * predicate function.
+ *
+ * Please note: this presupposes that the array is already ordered.
+ */
+
+export function nearestIndexFromEnd<T>(arr: T[], predicate: (arrayItem: T) => boolean): number | null {
+  return nearestIndex(arr, predicate, NearestSearchStart.END)
+}
+
+// Type guard for ensuring that `arr` does not contain null or undefined
+export function arrayDoesNotContainNullOrUndefined<T>(arr: (T | null | undefined)[]): arr is T[] {
+  return !arr.includes(null) && !arr.includes(undefined)
 }
