@@ -143,8 +143,7 @@ export class GraphManager {
     log('Removing weak links...')
     this.disconnectEdgesWithType(this.edgeWeakType)
     // this.disconnectEdgesMatchName(/part of key .* -> value .* pair in WeakMap/)
-    this.disconnectNodesWithName('WeakMap')
-    this.disconnectNodesWithName('system / StackTraceFrame')
+    this.disconnectNodesWithName('WeakMap', 'WeakSet', 'WeakRef', 'system / StackTraceFrame')
 
     // log('Removing constructors')
     // this.disconnectEdgesWithName('__proto__', 'constructor', 'prototype')
