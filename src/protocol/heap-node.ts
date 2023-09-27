@@ -7,9 +7,7 @@ export class HeapNode {
 
   constructor(
     private readonly graphManager: GraphManager,
-    public readonly originalNodeFields: number[],
-    public readonly originalIndex: number,
-    public readonly indexInNodeMap: number
+    public readonly nodeIndex: number
   ) {}
 
   connectPrevNode(node: HeapNode) {
@@ -54,15 +52,15 @@ export class HeapNode {
   }
 
   getOriginalEdgeCount(): number {
-    return this.originalNodeFields[this.graphManager.nodeEdgeCountOffset]
+    return this.graphManager.nodes[this.nodeIndex + this.graphManager.nodeEdgeCountOffset]
   }
 
   getNodeId() {
-    return this.originalNodeFields[this.graphManager.nodeIdOffset]
+    return this.graphManager.nodes[this.nodeIndex + this.graphManager.nodeIdOffset]
   }
 
   getNodeNameIndex() {
-    return this.originalNodeFields[this.graphManager.nodeNameOffset]
+    return this.graphManager.nodes[this.nodeIndex + this.graphManager.nodeNameOffset]
   }
 
   disconnectNextNodes() {
