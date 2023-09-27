@@ -1,10 +1,9 @@
 import { GraphManager } from '../graph-manager'
-import { HeapEdge } from './heap-edge'
 
 /** A representation of a single node in the graph. */
 export class HeapNode {
   private readonly prevNodes = new Set<HeapNode>()
-  private readonly nextNodes = new Map<HeapNode, Set<HeapEdge>>()
+  private readonly nextNodes = new Map<HeapNode, Set<number>>()
 
   constructor(
     private readonly graphManager: GraphManager,
@@ -20,16 +19,16 @@ export class HeapNode {
     this.prevNodes.add(node)
   }
 
-  connectNextNode(node: HeapNode, edge: HeapEdge) {
+  connectNextNode(node: HeapNode, edgeIndex: number) {
     if (node === this) {
       return
     }
     let set = this.nextNodes.get(node)
     if (!set) {
-      set = new Set<HeapEdge>()
+      set = new Set<number>()
       this.nextNodes.set(node, set)
     }
-    set.add(edge)
+    set.add(edgeIndex)
   }
 
   private removePrevNode(node: HeapNode) {
@@ -47,8 +46,8 @@ export class HeapNode {
   getNextNodesAndEdges(): EdgeAndNode[] {
     const result: EdgeAndNode[] = []
     for (const [node, edges] of this.nextNodes.entries()) {
-      for (const edge of edges) {
-        result.push({ node, edge })
+      for (const edgeIndex of edges) {
+        result.push({ node, edgeIndex })
       }
     }
     return result
@@ -73,10 +72,10 @@ export class HeapNode {
     this.nextNodes.clear()
   }
 
-  removeEdge(node: HeapNode, edge: HeapEdge) {
+  removeEdge(node: HeapNode, edgeIndex: number) {
     const edges = this.nextNodes.get(node)
     if (edges) {
-      edges.delete(edge)
+      edges.delete(edgeIndex)
       if (!edges.size) {
         this.nextNodes.delete(node)
         node.removePrevNode(this)
@@ -106,6 +105,6 @@ export class HeapNode {
 }
 
 export interface EdgeAndNode {
-  edge: HeapEdge
+  edgeIndex: number
   node: HeapNode
 }

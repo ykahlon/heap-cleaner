@@ -2,7 +2,6 @@ import { JsonHeapDump } from './protocol/json-heap-dump'
 import { HeapNode } from './protocol/heap-node'
 import { JSHeapSnapshot, DOMLinkState } from './vendor/HeapSnapshot'
 import { log } from './log'
-import { HeapEdge } from './protocol/heap-edge'
 
 // TODO: consider parsing node/edge types (hardcoded right now)
 // TODO: check if need to modify functions, trace, samples etc
@@ -20,6 +19,7 @@ export class GraphManager {
   public readonly edgeToNodeOffset: number
   private readonly edgeWeakType: number
   private readonly nodeDetachednessOffset: number
+  private readonly edges: Uint32Array
 
   constructor(snapshot: JSHeapSnapshot) {
     this.nodeFieldCount = snapshot.nodeFieldCount
@@ -32,6 +32,7 @@ export class GraphManager {
     this.edgeToNodeOffset = snapshot.edgeToNodeOffset
     this.edgeWeakType = snapshot.edgeWeakType
     this.nodeDetachednessOffset = snapshot.nodeDetachednessOffset
+    this.edges = snapshot.containmentEdges
 
     this.jsonHeapDump = {
       snapshot: { ...snapshot.profile.snapshot },
@@ -65,9 +66,8 @@ export class GraphManager {
     for (const node of this.getSortedNodes()) {
       const limit = currentEdgeIndex + node.getOriginalEdgeCount() * this.edgeFieldCount
       for (let i = currentEdgeIndex; i < limit; i += this.edgeFieldCount) {
-        let edge = new HeapEdge(this, Array.from(snapshot.containmentEdges.slice(i, i + this.edgeFieldCount)))
-        const toNode = this.nodeMap[edge.getOriginalToNode() / this.nodeFieldCount]!
-        node.connectNextNode(toNode, edge)
+        const toNode = this.nodeMap[snapshot.containmentEdges[i + this.edgeToNodeOffset] / this.nodeFieldCount]!
+        node.connectNextNode(toNode, i)
         toNode.connectPrevNode(node)
       }
       currentEdgeIndex += node.getOriginalEdgeCount() * this.edgeFieldCount
@@ -98,15 +98,17 @@ export class GraphManager {
       this.jsonHeapDump.nodes.push(...heapNode.originalNodeFields)
     }
     for (const heapNode of sortedNodes) {
-      for (const { node, edge } of heapNode.getNextNodesAndEdges()) {
-        const edgeName = this.jsonHeapDump.strings[edge.getEdgeNameIndex()]
+      for (const { node, edgeIndex } of heapNode.getNextNodesAndEdges()) {
+        const edgeNameIndex = this.edges[edgeIndex + this.edgeNameOffset]
+        const edgeName = this.jsonHeapDump.strings[edgeNameIndex]
         if (!stringsWithIndex.has(edgeName)) {
           allStrings.push(edgeName)
           stringsWithIndex.set(edgeName, allStrings.length - 1)
         }
-        edge.originalEdgeFields[this.edgeNameOffset] = stringsWithIndex.get(edgeName)!
-        edge.originalEdgeFields[this.edgeToNodeOffset] = nodeIndices[node.originalIndex]!
-        this.jsonHeapDump.edges.push(...edge.originalEdgeFields)
+        const edgeFields = Array.from(this.edges.slice(edgeIndex, edgeIndex + this.edgeFieldCount))
+        edgeFields[this.edgeNameOffset] = stringsWithIndex.get(edgeName)!
+        edgeFields[this.edgeToNodeOffset] = nodeIndices[node.originalIndex]!
+        this.jsonHeapDump.edges.push(...edgeFields)
       }
     }
 
@@ -311,8 +313,9 @@ export class GraphManager {
     }
     for (const node of Object.values(this.nodeMap)) {
       for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
-        if (indexes[nextEdgeAndNode.edge.getEdgeNameIndex()]) {
-          node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge)
+        const edgeNameIndex = nextEdgeAndNode.edgeIndex + this.edgeNameOffset
+        if (indexes[edgeNameIndex]) {
+          node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edgeIndex)
         }
       }
     }
@@ -328,8 +331,9 @@ export class GraphManager {
     }
     for (const node of Object.values(this.nodeMap)) {
       for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
-        if (indexes[nextEdgeAndNode.edge.getEdgeNameIndex()]) {
-          node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge)
+        const edgeNameIndex = nextEdgeAndNode.edgeIndex + this.edgeNameOffset
+        if (indexes[edgeNameIndex]) {
+          node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edgeIndex)
         }
       }
     }
@@ -338,8 +342,9 @@ export class GraphManager {
   private disconnectEdgesWithType(...edgeTypesToDisconnect: number[]) {
     for (const node of Object.values(this.nodeMap)) {
       for (const nextEdgeAndNode of node.getNextNodesAndEdges()) {
-        if (edgeTypesToDisconnect.includes(nextEdgeAndNode.edge.getEdgeType())) {
-          node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edge)
+        const edgeType = this.edges[nextEdgeAndNode.edgeIndex + this.edgeTypeOffset]
+        if (edgeTypesToDisconnect.includes(edgeType)) {
+          node.removeEdge(nextEdgeAndNode.node, nextEdgeAndNode.edgeIndex)
         }
       }
     }
